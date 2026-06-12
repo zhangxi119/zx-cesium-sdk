@@ -70,7 +70,7 @@ class FeatureGridLayer extends Layer {
 
   get tileWidth() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'tileWidth must not be called before the imagery provider is ready.'
       )
     }
@@ -79,7 +79,7 @@ class FeatureGridLayer extends Layer {
 
   get tileHeight() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'tileHeight must not be called before the imagery provider is ready.'
       )
     }
@@ -88,7 +88,7 @@ class FeatureGridLayer extends Layer {
 
   get maximumLevel() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'maximumLevel must not be called before the imagery provider is ready.'
       )
     }
@@ -97,7 +97,7 @@ class FeatureGridLayer extends Layer {
 
   get minimumLevel() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'minimumLevel must not be called before the imagery provider is ready.'
       )
     }
@@ -106,7 +106,7 @@ class FeatureGridLayer extends Layer {
 
   get tilingScheme() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'tilingScheme must not be called before the imagery provider is ready.'
       )
     }
@@ -115,7 +115,7 @@ class FeatureGridLayer extends Layer {
 
   get rectangle() {
     if (!this.ready) {
-      throw new Cesium.DeveloperError(
+      throw new Error(
         'rectangle must not be called before the imagery provider is ready.'
       )
     }

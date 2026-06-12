@@ -21,7 +21,7 @@ class RadarOuterMaterialProperty extends MaterialProperty {
   }
 
   getValue(time, result) {
-    result = Cesium.defaultValue(result, {})
+    result = result ?? {}
     result.color = Cesium.Property.getValueOrUndefined(this._color, time)
     result.speed = Cesium.Property.getValueOrUndefined(this._speed, time)
     result.repeat = Cesium.Property.getValueOrUndefined(this._repeat, time)

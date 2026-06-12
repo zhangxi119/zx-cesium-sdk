@@ -42,7 +42,13 @@ class Viewer {
 
     if (typeof container === 'string') {
       const baseUrl = getParam('baseUrl')
-      baseUrl && Cesium.buildModuleUrl.setBaseUrl(baseUrl) // Initialize the Cesium_BASE_URL
+      if (baseUrl) {
+        // Initialize the CESIUM_BASE_URL (compatible with Cesium 1.104+ where buildModuleUrl was removed)
+        window.CESIUM_BASE_URL = baseUrl
+        if (Cesium.buildModuleUrl) {
+          Cesium.buildModuleUrl.setBaseUrl(baseUrl)
+        }
+      }
     }
 
     this._delegate =

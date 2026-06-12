@@ -24,7 +24,7 @@ class WallImageTrailMaterialProperty extends MaterialProperty {
   }
 
   getValue(time, result) {
-    result = Cesium.defaultValue(result, {})
+    result = result ?? {}
     result.color = Cesium.Property.getValueOrUndefined(this._color, time)
     result.image = Cesium.Property.getValueOrUndefined(this._image, time)
     result.repeat = Cesium.Property.getValueOrUndefined(this._repeat, time)

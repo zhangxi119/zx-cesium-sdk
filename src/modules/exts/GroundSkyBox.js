@@ -6,8 +6,6 @@ import { Cesium } from '../../libs'
 const {
   BoxGeometry,
   Cartesian3,
-  defined,
-  DeveloperError,
   GeometryPipeline,
   Matrix3,
   Matrix4,
@@ -24,6 +22,8 @@ const {
   ShaderSource,
   SkyBox,
 } = Cesium
+
+const defined = (value) => value !== undefined && value !== null
 
 const SkyBoxFS = `
   uniform samplerCube u_cubeMap;
@@ -85,7 +85,7 @@ class GroundSkyBox extends SkyBox {
         !defined(sources.positiveZ) ||
         !defined(sources.negativeZ)
       ) {
-        throw new DeveloperError(
+        throw new Error(
           'this.sources is required and must have positiveX, negativeX, positiveY, negativeY, positiveZ, and negativeZ properties.'
         )
       }
@@ -97,7 +97,7 @@ class GroundSkyBox extends SkyBox {
         typeof sources.positiveX !== typeof sources.positiveZ ||
         typeof sources.positiveX !== typeof sources.negativeZ
       ) {
-        throw new DeveloperError(
+        throw new Error(
           'this.sources properties must all be the same type.'
         )
       }

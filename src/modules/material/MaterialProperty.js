@@ -28,7 +28,7 @@ class MaterialProperty {
   }
 
   getValue(time, result) {
-    result = Cesium.defaultValue(result, {})
+    result = result ?? {}
     return result
   }
 
