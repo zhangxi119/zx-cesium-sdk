@@ -8,6 +8,7 @@ import State from '../../state/State'
 import Parse from '../../parse/Parse'
 import { Util } from '../../utils'
 import { Transform } from '../../transform'
+import Polyline from './Polyline'
 
 class Circle extends Overlay {
   constructor(center, radius) {
@@ -17,6 +18,10 @@ class Circle extends Overlay {
     this._radius = +radius || 0
     this._rotateAmount = 0
     this._stRotation = 0
+    this._outline = false
+    this._outlineColor = Cesium.Color.RED
+    this._outlineWidth = 1
+    this._outlinePolyline = undefined
     this._state = State.INITIALIZED
   }
 
@@ -27,6 +32,7 @@ class Circle extends Overlay {
   set center(center) {
     this._center = Parse.parsePosition(center)
     this._delegate.position = Transform.transformWGS84ToCartesian(this._center)
+    this._updateOutline()
   }
 
   get center() {
@@ -37,6 +43,7 @@ class Circle extends Overlay {
     this._radius = +radius
     this._delegate.ellipse.semiMajorAxis = this._radius
     this._delegate.ellipse.semiMinorAxis = this._radius
+    this._updateOutline()
   }
 
   get radius() {
@@ -56,6 +63,87 @@ class Circle extends Overlay {
 
   get rotateAmount() {
     return this._rotateAmount
+  }
+
+  set outline(outline) {
+    this._outline = outline
+    if (this._outline) {
+      this._updateOutline()
+    } else if (this._outlinePolyline) {
+      this._outlinePolyline.remove()
+      this._outlinePolyline = undefined
+    }
+  }
+
+  get outline() {
+    return this._outline
+  }
+
+  set outlineColor(outlineColor) {
+    this._outlineColor = outlineColor
+    if (this._outlinePolyline) {
+      this._outlinePolyline.setStyle({
+        material: this._outlineColor,
+      })
+    }
+  }
+
+  get outlineColor() {
+    return this._outlineColor
+  }
+
+  set outlineWidth(outlineWidth) {
+    this._outlineWidth = +outlineWidth
+    if (this._outlinePolyline) {
+      this._outlinePolyline.setStyle({
+        width: this._outlineWidth,
+      })
+    }
+  }
+
+  get outlineWidth() {
+    return this._outlineWidth
+  }
+
+  /**
+   * Computes the outline positions using local ENU coordinate system
+   * @returns {Position[]}
+   * @private
+   */
+  _computeOutlinePositions() {
+    return Transform.generateCirclePositions(
+      this._center,
+      this._radius,
+      360,
+      this._center.alt || 0
+    )
+  }
+
+  /**
+   * Creates or updates the outline polyline
+   * @private
+   */
+  _updateOutline() {
+    if (!this._outline || !this._layer) {
+      return
+    }
+    if (!this._outlinePolyline) {
+      this._outlinePolyline = new Polyline(this._computeOutlinePositions())
+      this._outlinePolyline.setStyle({
+        width: this._outlineWidth,
+        material: this._outlineColor,
+      })
+      this._layer.addOverlay(this._outlinePolyline)
+    } else {
+      this._outlinePolyline.positions = this._computeOutlinePositions()
+    }
+  }
+
+  _removedHook() {
+    if (this._outlinePolyline) {
+      this._outlinePolyline.remove()
+      this._outlinePolyline = undefined
+    }
   }
 
   _mountedHook() {
@@ -90,9 +178,19 @@ class Circle extends Overlay {
     if (!style || Object.keys(style).length === 0) {
       return this
     }
-    delete style['center']
-    Util.merge(this._style, style)
-    Util.merge(this._delegate.ellipse, style)
+    let { outline, outlineColor, outlineWidth, ...rest } = style
+    if (outline !== undefined) {
+      this.outline = outline
+    }
+    if (outlineColor !== undefined) {
+      this.outlineColor = outlineColor
+    }
+    if (outlineWidth !== undefined) {
+      this.outlineWidth = outlineWidth
+    }
+    delete rest['center']
+    Util.merge(this._style, rest)
+    Util.merge(this._delegate.ellipse, rest)
     return this
   }
 }

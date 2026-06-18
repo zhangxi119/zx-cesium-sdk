@@ -154,6 +154,35 @@ class Transform {
       this.transformWGS84ToCartesian(position)
     )
   }
+
+  /**
+   * Generates WGS84 positions on a circle centered at the given position
+   * @param {Position} center
+   * @param {number} radius - in meters
+   * @param {number} segments - default 360
+   * @param {number} altitude - force altitude for all points, default center.alt
+   * @returns {Position[]}
+   */
+  static generateCirclePositions(center, radius, segments = 360, altitude = null) {
+    let positions = []
+    let centerCartesian = this.transformWGS84ToCartesian(center)
+    let matrix = Cesium.Transforms.eastNorthUpToFixedFrame(centerCartesian)
+    for (let i = 0; i <= segments; i++) {
+      let angle = (i * 2 * Math.PI) / segments
+      let x = radius * Math.cos(angle)
+      let y = radius * Math.sin(angle)
+      let offset = new Cesium.Cartesian3(x, y, 0)
+      let worldPos = Cesium.Matrix4.multiplyByPoint(
+        matrix,
+        offset,
+        new Cesium.Cartesian3()
+      )
+      let pos = this.transformCartesianToWGS84(worldPos)
+      pos.alt = altitude !== null ? altitude : (center.alt || 0)
+      positions.push(pos)
+    }
+    return positions
+  }
 }
 
 export default Transform
