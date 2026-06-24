@@ -22,6 +22,19 @@ class DrawCircle extends Draw {
       ...DEF_STYLE,
       ...style,
     }
+    this._labelDelegate = undefined
+  }
+
+  /**
+   *
+   * @param distance
+   * @returns {string}
+   * @private
+   */
+  _formatDistance(distance) {
+    return distance > 1000
+      ? `${(distance / 1000).toFixed(2)} 公里`
+      : `${distance.toFixed(2)} 米`
   }
 
   /**
@@ -63,6 +76,41 @@ class DrawCircle extends Draw {
       },
     })
     this._layer.entities.add(this._delegate)
+    if (this._options.showDistance) {
+      this._mountDistanceLabel()
+    }
+  }
+
+  /**
+   *
+   * @private
+   */
+  _mountDistanceLabel() {
+    this._labelDelegate = new Cesium.Entity({
+      position: new Cesium.CallbackProperty(() => {
+        if (this._positions.length > 1) {
+          return Cesium.Cartesian3.midpoint(
+            this._positions[0],
+            this._positions[1],
+            new Cesium.Cartesian3()
+          )
+        }
+        return undefined
+      }, false),
+      label: {
+        text: new Cesium.CallbackProperty(() => {
+          if (this._positions.length > 1 && this._radius > 0) {
+            return this._formatDistance(this._radius)
+          }
+          return ''
+        }, false),
+        font: '14px sans-serif',
+        pixelOffset: new Cesium.Cartesian2(0, -15),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        showBackground: true,
+      },
+    })
+    this._layer.entities.add(this._labelDelegate)
   }
 
   /**
@@ -70,6 +118,8 @@ class DrawCircle extends Draw {
    * @private
    */
   _stoppedHook() {
+    this._labelDelegate && this._layer.entities.remove(this._labelDelegate)
+    this._labelDelegate = undefined
     let circle = null
     if (this._positions.length) {
       circle = new Circle(

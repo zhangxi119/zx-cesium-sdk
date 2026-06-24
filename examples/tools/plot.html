@@ -41,7 +41,8 @@
       viewer.addBaseLayer(baseLayer)
       let layer = new DC.VectorLayer('layer')
       viewer.addLayer(layer)
-      let plot = new DC.Plot(viewer)
+      // showDistance: 是否显示距离 仅支持圆点与面
+      let plot = new DC.Plot(viewer, { showDistance: true })
 
       function draw(type) {
         plot &&

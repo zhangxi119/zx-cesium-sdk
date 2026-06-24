@@ -11,6 +11,73 @@ import { Transform } from '../../transform'
 class EditPolygon extends Edit {
   constructor(overlay) {
     super(overlay)
+    this._labelDelegates = []
+  }
+
+  /**
+   *
+   * @param distance
+   * @returns {string}
+   * @private
+   */
+  _formatDistance(distance) {
+    return distance > 1000
+      ? `${(distance / 1000).toFixed(2)} 公里`
+      : `${distance.toFixed(2)} 米`
+  }
+
+  /**
+   * Creates a distance label entity bound to the edge whose mid anchor is at
+   * the given odd index. The edge connects the vertices at oddIndex-1 and
+   * (oddIndex+1) % len (the closing edge is handled by the wrap-around).
+   * @param oddIndex
+   * @returns {Cesium.Entity}
+   * @private
+   */
+  _createDistanceLabel(oddIndex) {
+    return new Cesium.Entity({
+      position: new Cesium.CallbackProperty(() => {
+        if (this._positions.length > oddIndex) {
+          return this._positions[oddIndex]
+        }
+        return undefined
+      }, false),
+      label: {
+        text: new Cesium.CallbackProperty(() => {
+          let len = this._positions.length
+          if (len > oddIndex) {
+            let start = this._positions[oddIndex - 1]
+            let end = this._positions[(oddIndex + 1) % len]
+            return this._formatDistance(
+              Cesium.Cartesian3.distance(start, end)
+            )
+          }
+          return ''
+        }, false),
+        font: '14px sans-serif',
+        pixelOffset: new Cesium.Cartesian2(0, -15),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        showBackground: true,
+      },
+    })
+  }
+
+  /**
+   * Rebuilds label entities so their count matches the current edge count
+   * (one label per mid anchor, i.e. per odd index).
+   * @private
+   */
+  _refreshLabels() {
+    this._labelDelegates.forEach((label) =>
+      this._layer.entities.remove(label)
+    )
+    this._labelDelegates = []
+    let count = Math.floor(this._positions.length / 2)
+    for (let j = 0; j < count; j++) {
+      let label = this._createDistanceLabel(2 * j + 1)
+      this._labelDelegates.push(label)
+      this._layer.entities.add(label)
+    }
   }
 
   /**
@@ -35,6 +102,10 @@ class EditPolygon extends Edit {
    * @private
    */
   _stoppedHook() {
+    this._labelDelegates.forEach((label) =>
+      this._layer.entities.remove(label)
+    )
+    this._labelDelegates = []
     this._overlay.positions = Transform.transformCartesianArrayToWGS84Array(
       this._positions.filter((item, index) => index % 2 === 0)
     )
@@ -64,6 +135,9 @@ class EditPolygon extends Edit {
         isMid: index % 2 !== 0,
       })
     })
+    if (this._options.showDistance) {
+      this._refreshLabels()
+    }
   }
 
   /**
@@ -114,6 +188,9 @@ class EditPolygon extends Edit {
           isMid: index % 2 !== 0,
         })
       })
+      if (this._options.showDistance) {
+        this._refreshLabels()
+      }
     }
   }
 
