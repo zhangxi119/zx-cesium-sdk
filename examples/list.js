@@ -348,6 +348,10 @@ const EXAMPLE_LIST = [
         page: 'polyline_custom_endpoint.html',
       },
       {
+        name: '点阵线',
+        page: 'trajectory_line.html',
+      },
+      {
         name: '面',
         page: 'polygon_base.html',
       },

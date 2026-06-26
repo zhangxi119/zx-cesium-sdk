@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>dc-example</title>
+    <script src="/libs/dc-sdk/dc.min.js"></script>
+    <link href="/libs/dc-sdk/dc.min.css" type="text/css" rel="stylesheet" />
+    <link href="../index.css" type="text/css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="viewer-container" class="viewer-container"></div>
+    <script>
+      DC.config.baseUrl = '../libs/dc-sdk/resources/'
+      let viewer = new DC.Viewer('viewer-container')
+      viewer.enableMouseOver = true
+      viewer.enableMouseMovePick = true
+
+      let baseLayer = DC.ImageryLayerFactory.createImageryLayer(
+        DC.ImageryType.AMAP,
+        {
+          style: 'img',
+          crs: 'WGS84',
+        }
+      )
+      viewer.addBaseLayer(baseLayer, {
+        brightness: 0.1,
+      })
+
+      let layer = new DC.VectorLayer('layer')
+      viewer.addLayer(layer)
+
+      // Generate simulated trajectory positions
+      let positions = []
+      let startLng = 120.38105869
+      let startLat = 31.10115627
+      for (let i = 0; i < 15; i++) {
+        let lng = startLng + i * 0.01 + Math.sin(i * 0.5) * 0.005
+        let lat = startLat + i * 0.008 + Math.cos(i * 0.3) * 0.003
+        let alt = 1000 + Math.sin(i * 0.4) * 500
+        positions.push(new DC.Position(lng, lat, alt))
+      }
+
+      // Create trajectory line: glow line + glow points (static render)
+      // dash: true 时使用发光虚线，false 时使用发光实线
+      let trajectory = new DC.TrajectoryLine(positions, {
+        showPoints: true,
+        lineStyle: {
+          color: DC.Color.fromCssColorString('#00FFFF'),
+          width: 2,
+          glowPower: 0.25,
+          clampToGround: false,
+          dash: false,
+          dashLength: 20,
+          dashPattern: 255,
+        },
+        pointStyle: {
+          pointSize: 20, // head point size; tail point = 1/3 of head
+          pointColor: DC.Color.fromCssColorString('#FFFF00'),
+        },
+        // tooltipTrigger: 'hover' | 'click' | 'both'（默认 both，悬停和点击均可触发）
+        tooltipTrigger: 'both',
+      })
+
+      // Set tooltip content callback
+      trajectory.setTooltipContent(function (index, pos, allPositions) {
+        let total = allPositions.length
+        return [
+          '<div style="padding:4px 8px;font-size:12px;line-height:1.6;">',
+          '<b>轨迹点 #' + (index + 1) + ' / ' + total + '</b><br/>',
+          '经度: ' + pos.lng.toFixed(6) + '<br/>',
+          '纬度: ' + pos.lat.toFixed(6) + '<br/>',
+          '高度: ' + pos.alt.toFixed(1) + 'm',
+          '</div>',
+        ].join('')
+      })
+
+      layer.addOverlay(trajectory)
+
+      // 自定义监听点位事件：通过标准 .on() 直接从富载荷读取点位数据
+      // 注意：需在 addOverlay 之后注册，确保富载荷字段可用
+      trajectory.on(DC.MouseEventType.CLICK, function (e) {
+        if (e.trajectoryIndex === undefined) {
+          return
+        }
+        console.log('点击轨迹点:', {
+          index: e.trajectoryIndex,
+          position: e.trajectoryPosition,
+          total: e.trajectoryPositions.length,
+        })
+      })
+
+      trajectory.on(DC.MouseEventType.MOUSE_OVER, function (e) {
+        if (e.trajectoryIndex === undefined) {
+          return
+        }
+        console.log('移入轨迹点 #' + (e.trajectoryIndex + 1))
+      })
+
+      viewer.flyTo(layer)
+    </script>
+  </body>
+</html>

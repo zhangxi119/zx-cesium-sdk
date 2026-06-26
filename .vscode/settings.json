@@ -1,0 +1,43 @@
+﻿{
+  "psi-header.config": {
+    "author": "zhangxi119",
+    "company": "zx-cesium-sdk"
+  },
+  "psi-header.templates": [
+    {
+      "language": "*",
+      "template": [
+        "/**",
+        " * @Author : <<author>>",
+        " * @Last Modified By : <<author>>",
+        " * @Last Modified Time : <<filelastupdated('YYYY-MM-DD HH:mm:ss')>>",
+        " */"
+      ],
+      "changeLogCaption": "Change Log",
+      "changeLogHeaderLabel": "Change Log",
+      "changeLogInitialLine": "",
+      "changeLogLine": "** <<filelastupdated('YYYY-MM-DD HH:mm:ss')>> <<author>> - <<changemessage>>"
+    }
+  ],
+  "psi-header.changes-tracking": {
+    "autoHeaderUpdatedOnSave": true,
+    "autoHeaderUpdatedOnSaveRegex": "^(.*@Last Modified.*)$",
+    "updateModifiedAuthor": true,
+    "updateModifiedTime": true,
+    "modifiedAuthorLabel": "@Last Modified By",
+    "modifiedTimeLabel": "@Last Modified Time",
+    "modifiedTimeFormat": "YYYY-MM-DD HH:mm:ss"
+  },
+  "psi-header.settings": {
+    "forceToTop": true,
+    "blankLinesAfter": 1,
+    "ignore": [
+      ".vscode",
+      ".git",
+      "dist",
+      "node_modules",
+      "resources",
+      "libs"
+    ]
+  }
+}

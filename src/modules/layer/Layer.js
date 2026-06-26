@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-06-26 14:50:00
  */
 
 import { Cesium } from '../../libs'
@@ -34,6 +36,10 @@ class Layer {
 
   get delegate() {
     return this._delegate
+  }
+
+  get viewer() {
+    return this._viewer
   }
 
   set show(show) {
