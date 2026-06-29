@@ -1,7 +1,7 @@
 /**
  * @Author : zhangxi119
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-06-26 15:20:00
+ * @Last Modified Time : 2026-06-29 10:47:00
  */
 import { Cesium } from '../../../libs'
 import Overlay from '../Overlay'
@@ -12,15 +12,22 @@ import { Util } from '../../utils'
 import { MouseEventType } from '../../event'
 
 class TrajectoryLine extends Overlay {
+  /**
+   * 构造函数
+   * @param positions {Position[]|string} 轨迹坐标点数组，支持 Position 数组或字符串格式
+   * @param options {Object} 可选配置项
+   */
   constructor(positions, options = {}) {
     super()
     this._positions = Parse.parsePositions(positions)
     this._options = options
-    this._pointEntities = []
-    this._glowImageCache = {}
-    this._tooltipContent = options.tooltipContent || null
-    this._tooltipTrigger = options.tooltipTrigger || 'both'
-    this._showPoints = options.showPoints !== false
+    this._pointEntities = [] // 分点 billboard entity 列表
+    this._glowImageCache = {} // 发光点图片缓存（按颜色缓存）
+    this._positionsDirty = true // 坐标脏标记，用于 Cartesian3 缓存
+    this._cachedCartesianPositions = null // Cartesian3 坐标缓存数组
+    this._tooltipContent = options.tooltipContent || null // tooltip 内容回调
+    this._tooltipTrigger = options.tooltipTrigger || 'both' // tooltip 触发方式
+    this._showPoints = options.showPoints !== false // 是否显示分点
     this._lineStyle = {
       color: Cesium.Color.fromCssColorString('#00FFFF'),
       width: 4,
@@ -34,13 +41,16 @@ class TrajectoryLine extends Overlay {
     this._pointStyle = {
       pointSize: 24,
       pointColor: Cesium.Color.fromCssColorString('#FFFF00'),
+      pointGradient: true,
+      pointGradientDirection: 'ascend',
       ...(options.pointStyle || {}),
     }
 
     this._delegate = new Cesium.Entity({
       polyline: {
         positions: new Cesium.CallbackProperty(() => {
-          return Transform.transformWGS84ArrayToCartesianArray(this._positions)
+          this._ensureCartesianCache()
+          return this._cachedCartesianPositions
         }, false),
         width: this._lineStyle.width,
         material: this._createLineMaterial(),
@@ -51,21 +61,107 @@ class TrajectoryLine extends Overlay {
     this._state = State.INITIALIZED
   }
 
+  /** 覆盖物类型 */
   get type() {
     return Overlay.getOverlayType('trajectory_line')
   }
 
+  /**
+   * 全量替换坐标数组，内部做 diff：新增的点位追加 entity，减少的点位移除 entity
+   * 数量不变时仅更新坐标值（通过 CallbackProperty 自动响应）
+   * @param positions {Position[]|string} 新坐标数组
+   */
   set positions(positions) {
-    this._positions = Parse.parsePositions(positions)
-    this._recreatePoints()
+    let newPositions = Parse.parsePositions(positions)
+    let oldLen = this._positions.length
+    let newLen = newPositions.length
+    this._positions = newPositions
+    this._markPositionsDirty()
+    if (!this._showPoints || !this._layer) {
+      return
+    }
+    if (newLen > oldLen) {
+      let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+      for (let i = oldLen; i < newLen; i++) {
+        this._addPointEntity(i, glowImage)
+      }
+    } else if (newLen < oldLen) {
+      for (let i = oldLen - 1; i >= newLen; i--) {
+        this._removePointEntity(i)
+      }
+    }
   }
 
+  /** 获取当前坐标数组 */
   get positions() {
     return this._positions
   }
 
   /**
-   * Creates line material based on dash config
+   * 在末尾或指定索引处添加一个坐标点，自动追加对应的 billboard entity
+   * @param position {Position|string} 要添加的坐标点
+   * @param index {number?} 插入位置索引，省略或 >= 数组长度时追加到末尾
+   * @returns {TrajectoryLine}
+   */
+  addPosition(position, index) {
+    let parsedPos = Parse.parsePosition(position)
+    if (index === undefined || index >= this._positions.length) {
+      this._positions.push(parsedPos)
+      this._markPositionsDirty()
+      if (this._showPoints && this._layer) {
+        let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+        this._addPointEntity(this._positions.length - 1, glowImage)
+      }
+    } else {
+      this._positions.splice(index, 0, parsedPos)
+      this._markPositionsDirty()
+      if (this._showPoints && this._layer) {
+        let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+        this._addPointEntity(index, glowImage)
+      }
+    }
+    return this
+  }
+
+  /**
+   * 移除指定索引的坐标点及对应 entity
+   * @param index {number} 要移除的坐标点索引
+   * @returns {TrajectoryLine}
+   */
+  removePositionAt(index) {
+    if (index < 0 || index >= this._positions.length) {
+      return this
+    }
+    this._positions.splice(index, 1)
+    this._markPositionsDirty()
+    if (this._pointEntities.length > index) {
+      this._removePointEntity(index)
+    }
+    return this
+  }
+
+  /**
+   * 按坐标值查找并移除坐标点（经纬度及高度均匹配时移除）
+   * @param position {Position|string} 要移除的坐标点
+   * @returns {TrajectoryLine}
+   */
+  removePosition(position) {
+    let parsedPos = Parse.parsePosition(position)
+    for (let i = 0; i < this._positions.length; i++) {
+      let p = this._positions[i]
+      if (
+        Math.abs(p.lng - parsedPos.lng) < 1e-10 &&
+        Math.abs(p.lat - parsedPos.lat) < 1e-10 &&
+        Math.abs(p.alt - parsedPos.alt) < 1e-10
+      ) {
+        return this.removePositionAt(i)
+      }
+    }
+    return this
+  }
+
+  /**
+   * 根据虚线配置创建线材质
    * @returns {MaterialProperty}
    * @private
    */
@@ -88,9 +184,9 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Generates a radial-gradient glow image as data url, cached by color
-   * @param color {Cesium.Color}
-   * @returns {string}
+   * 生成径向渐变发光点图片（data url），按颜色缓存
+   * @param color {Cesium.Color} 点颜色
+   * @returns {string} data url
    * @private
    */
   _createGlowImage(color) {
@@ -127,9 +223,12 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Computes point size for given index (head large, tail small = 1/3 of head)
-   * @param index {number}
-   * @returns {number}
+   * 计算指定索引处的点尺寸
+   * pointGradient=false → 统一 pointSize
+   * pointGradientDirection='ascend' → 首小尾大（尾点 = maxSize，首点 = maxSize/3）
+   * pointGradientDirection='descend' → 首大尾小（首点 = maxSize，尾点 = maxSize/3）
+   * @param index {number} 点索引
+   * @returns {number} 点尺寸（像素）
    * @private
    */
   _getPointSize(index) {
@@ -138,42 +237,130 @@ class TrajectoryLine extends Overlay {
     if (count <= 1) {
       return maxSize
     }
-    return maxSize * (1 - (2 / 3) * (index / (count - 1)))
+    if (!this._pointStyle.pointGradient) {
+      return maxSize
+    }
+    let ratio = index / (count - 1)
+    if (this._pointStyle.pointGradientDirection === 'descend') {
+      return maxSize * (1 - (2 / 3) * ratio)
+    }
+    return maxSize * (1 / 3 + (2 / 3) * ratio)
   }
 
   /**
-   * Creates glow billboard entities for each position
+   * 为每个坐标创建发光 billboard entity
    * @private
    */
   _createPoints() {
     if (!this._showPoints || !this._layer) {
       return
     }
-    this._pointEntities = []
+    if (this._pointEntities.length > 0) {
+      return
+    }
     let glowImage = this._createGlowImage(this._pointStyle.pointColor)
-    this._positions.forEach((pos, index) => {
-      let size = this._getPointSize(index)
-      let pointEntity = this._layer.delegate.entities.add({
-        position: Transform.transformWGS84ToCartesian(pos),
-        billboard: {
-          image: glowImage,
-          width: size,
-          height: size,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        },
-        properties: {
-          trajectoryIndex: index,
-          trajectoryPosition: pos,
-        },
-      })
-      pointEntity.overlayId = this._id
-      pointEntity.layerId = this._layer?.layerId
-      this._pointEntities.push(pointEntity)
-    })
+    for (let i = 0; i < this._positions.length; i++) {
+      this._addPointEntity(i, glowImage)
+    }
   }
 
   /**
-   * Recreates all point entities
+   * 在指定索引处添加单个 billboard entity
+   * position/width/height 均使用 CallbackProperty，坐标变更时自动响应
+   * @param index {number} 索引位置
+   * @param glowImage {string?} 发光图片 data url，为空时自动生成
+   * @returns {Cesium.Entity|null}
+   * @private
+   */
+  _addPointEntity(index, glowImage) {
+    if (!this._layer) {
+      return null
+    }
+    if (!glowImage) {
+      glowImage = this._createGlowImage(this._pointStyle.pointColor)
+    }
+    let self = this
+    let entity = this._layer.delegate.entities.add({
+      position: new Cesium.CallbackProperty(() => {
+        if (entity._trajIndex === undefined) {
+          return undefined
+        }
+        self._ensureCartesianCache()
+        return self._cachedCartesianPositions[entity._trajIndex]
+      }, false),
+      billboard: {
+        image: glowImage,
+        width: new Cesium.CallbackProperty(() => {
+          if (entity._trajIndex === undefined) {
+            return 0
+          }
+          return self._getPointSize(entity._trajIndex)
+        }, false),
+        height: new Cesium.CallbackProperty(() => {
+          if (entity._trajIndex === undefined) {
+            return 0
+          }
+          return self._getPointSize(entity._trajIndex)
+        }, false),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    })
+    entity._trajIndex = index
+    entity.overlayId = this._id
+    entity.layerId = this._layer?.layerId
+    this._pointEntities.splice(index, 0, entity)
+    this._updatePointIndices(index)
+    return entity
+  }
+
+  /**
+   * 移除指定索引的 billboard entity
+   * @param index {number} 索引位置
+   * @private
+   */
+  _removePointEntity(index) {
+    let entity = this._pointEntities[index]
+    if (entity && this._layer?.delegate?.entities) {
+      this._layer.delegate.entities.remove(entity)
+    }
+    this._pointEntities.splice(index, 1)
+    this._updatePointIndices(index)
+  }
+
+  /**
+   * 从指定索引开始更新所有 entity 的 _trajIndex
+   * @param fromIndex {number} 起始索引
+   * @private
+   */
+  _updatePointIndices(fromIndex) {
+    for (let i = fromIndex; i < this._pointEntities.length; i++) {
+      this._pointEntities[i]._trajIndex = i
+    }
+  }
+
+  /**
+   * 标记坐标为脏，清空 Cartesian3 缓存
+   * @private
+   */
+  _markPositionsDirty() {
+    this._positionsDirty = true
+    this._cachedCartesianPositions = null
+  }
+
+  /**
+   * 确保 Cartesian3 缓存有效，脏标记时重算
+   * @private
+   */
+  _ensureCartesianCache() {
+    if (this._positionsDirty || !this._cachedCartesianPositions) {
+      this._cachedCartesianPositions =
+        Transform.transformWGS84ArrayToCartesianArray(this._positions)
+      this._positionsDirty = false
+    }
+  }
+
+  /**
+   * 重建所有分点 entity（先移除再创建）
    * @private
    */
   _recreatePoints() {
@@ -182,7 +369,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Removes all point entities
+   * 移除所有分点 entity
    * @private
    */
   _removePoints() {
@@ -195,24 +382,22 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Extracts trajectory point data from a picked event and enriches the
-   * event payload with trajectoryIndex / trajectoryPosition / trajectoryPositions
-   * @param e
+   * 从拾取事件中提取轨迹点数据，并向事件载荷注入
+   * trajectoryIndex / trajectoryPosition / trajectoryPositions 字段
+   * @param e 拾取事件对象
    * @returns {{index: number, position: *}|null}
    * @private
    */
   _getPointData(e) {
     let entity = e?.target?.id
-    if (!entity || !entity.properties) {
+    if (!entity || entity._trajIndex === undefined) {
       return null
     }
-    let val = entity.properties.getValue(Cesium.JulianDate.now())
-    let index = val?.trajectoryIndex
-    let pos = val?.trajectoryPosition
-    if (index === undefined || !pos) {
+    let index = entity._trajIndex
+    let pos = this._positions[index]
+    if (!pos) {
       return null
     }
-    // enrich event payload for user `.on()` listeners
     e.trajectoryIndex = index
     e.trajectoryPosition = pos
     e.trajectoryPositions = this._positions
@@ -220,9 +405,9 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Shows tooltip at the given window position for a point
-   * @param e
-   * @param data {{index: number, position: *}}
+   * 在指定窗口位置显示 tooltip
+   * @param e 事件对象
+   * @param data {{index: number, position: *}} 点位数据
    * @private
    */
   _showTooltip(e, data) {
@@ -240,7 +425,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Hides tooltip
+   * 隐藏 tooltip
    * @private
    */
   _hideTooltip() {
@@ -254,7 +439,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Mouse over handler (enriches payload + hover tooltip)
+   * 鼠标移入处理（注入载荷 + 悬停 tooltip）
    * @param e
    * @private
    */
@@ -269,7 +454,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Mouse out handler
+   * 鼠标移出处理
    * @private
    */
   _onMouseOut() {
@@ -279,7 +464,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Click handler (enriches payload + click tooltip)
+   * 点击处理（注入载荷 + 点击 tooltip）
    * @param e
    * @private
    */
@@ -294,7 +479,7 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Viewer-level click handler to hide tooltip when clicking off a point
+   * viewer 级点击处理，点击空白处时隐藏 tooltip
    * @param e
    * @private
    */
@@ -306,6 +491,10 @@ class TrajectoryLine extends Overlay {
     this._hideTooltip()
   }
 
+  /**
+   * 挂载到图层时的钩子：创建分点、注册事件
+   * @private
+   */
   _mountedHook() {
     this._createPoints()
     this.on(MouseEventType.MOUSE_OVER, this._onMouseOver, this)
@@ -319,6 +508,10 @@ class TrajectoryLine extends Overlay {
     }
   }
 
+  /**
+   * 从图层移除时的钩子：移除分点、注销事件
+   * @private
+   */
   _removedHook() {
     this._removePoints()
     this.off(MouseEventType.MOUSE_OVER, this._onMouseOver, this)
@@ -331,8 +524,9 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Sets line style
-   * @param style
+   * 设置发光线样式
+   * 传入 color / glowPower / dash 等会重建线材质；传入 material 则使用自定义材质
+   * @param style {Object} 线样式配置
    * @returns {TrajectoryLine}
    */
   setStyle(style) {
@@ -363,22 +557,30 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Sets point style
-   * @param style
+   * 设置发光点样式
+   * 仅更新颜色时直接替换 billboard 图片，不重建 entity；
+   * 更新 pointSize / pointGradient / pointGradientDirection 时通过 CallbackProperty 自动响应
+   * @param style {Object} 点样式配置
    * @returns {TrajectoryLine}
    */
   setPointStyle(style) {
     if (!style || Object.keys(style).length === 0) {
       return this
     }
+    let oldColor = this._pointStyle.pointColor
     Util.merge(this._pointStyle, style)
-    this._recreatePoints()
+    if (style.pointColor && style.pointColor !== oldColor) {
+      let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+      this._pointEntities.forEach((e) => {
+        e.billboard.image = glowImage
+      })
+    }
     return this
   }
 
   /**
-   * Sets tooltip content callback
-   * @param callback (index, position, allPositions) => string
+   * 设置分点提示内容回调
+   * @param callback {(index: number, position: *, allPositions: *) => string}
    * @returns {TrajectoryLine}
    */
   setTooltipContent(callback) {
@@ -387,9 +589,54 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * Parse from entity
-   * @param entity
-   * @returns {TrajectoryLine}
+   * 动态切换分点显隐，无需重建 entity
+   * @param show {boolean}
+   */
+  set showPoints(show) {
+    this._showPoints = show
+    if (show && this._pointEntities.length === 0 && this._layer) {
+      this._createPoints()
+    } else {
+      this._pointEntities.forEach((e) => {
+        e.show = show
+      })
+    }
+  }
+
+  /** 获取当前分点显隐状态 */
+  get showPoints() {
+    return this._showPoints
+  }
+
+  /**
+   * 动态切换 tooltip 触发方式，自动注册/注销 viewer 级 click 事件
+   * @param trigger {'hover'|'click'|'both'}
+   */
+  set tooltipTrigger(trigger) {
+    let oldTrigger = this._tooltipTrigger
+    this._tooltipTrigger = trigger
+    if (!this._layer) {
+      return
+    }
+    let oldNeedsViewerClick = oldTrigger === 'click' || oldTrigger === 'both'
+    let newNeedsViewerClick = trigger === 'click' || trigger === 'both'
+    let viewer = this._layer?.viewer
+    if (!oldNeedsViewerClick && newNeedsViewerClick && viewer) {
+      viewer.on(MouseEventType.CLICK, this._onViewerClick, this)
+    } else if (oldNeedsViewerClick && !newNeedsViewerClick && viewer) {
+      viewer.off(MouseEventType.CLICK, this._onViewerClick, this)
+    }
+  }
+
+  /** 获取当前 tooltip 触发方式 */
+  get tooltipTrigger() {
+    return this._tooltipTrigger
+  }
+
+  /**
+   * 从 Cesium Entity 解析创建 TrajectoryLine
+   * @param entity {Cesium.Entity}
+   * @returns {TrajectoryLine|undefined}
    */
   static fromEntity(entity) {
     let trajectory = undefined

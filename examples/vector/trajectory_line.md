@@ -42,10 +42,15 @@ new DC.TrajectoryLine(positions, options)
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `pointSize` | `number` | `24` | 头部点最大尺寸（像素） |
+| `pointSize` | `number` | `24` | 点最大尺寸（像素），渐变时为最大端的尺寸 |
 | `pointColor` | `Cesium.Color` | `#FFFF00` | 点颜色 |
+| `pointGradient` | `boolean` | `true` | 是否启用点尺寸渐变，`false` 时所有点统一为 `pointSize` |
+| `pointGradientDirection` | `string` | `'ascend'` | 渐变方向：`'ascend'`（首小尾大）、`'descend'`（首大尾小） |
 
-> **点尺寸规则**：头部点（第一个）最大为 `pointSize`，尾部点（最后一个）最小为 `pointSize / 3`，中间点按索引线性插值。
+> **点尺寸规则**：
+> - `pointGradient: false` → 所有点统一为 `pointSize`。
+> - `pointGradientDirection: 'ascend'`（默认）→ 头部点最小为 `pointSize / 3`，尾部点最大为 `pointSize`，中间点按索引线性插值。
+> - `pointGradientDirection: 'descend'` → 头部点最大为 `pointSize`，尾部点最小为 `pointSize / 3`，中间点按索引线性插值。
 
 ## 方法
 
@@ -71,12 +76,24 @@ trajectory.setStyle({
 
 ### setPointStyle(style)
 
-设置发光点样式，调用后会重建所有分点以应用新颜色/尺寸。
+设置发光点样式。仅更新颜色时不会重建 entity，直接替换 billboard 图片；更新 `pointSize` / `pointGradient` / `pointGradientDirection` 时通过 `CallbackProperty` 自动响应，无需重建。
 
 ```javascript
+// 更新颜色和尺寸
 trajectory.setPointStyle({
   pointSize: 32,
   pointColor: DC.Color.ORANGE,
+})
+
+// 切换为不渐变（统一大小）
+trajectory.setPointStyle({
+  pointGradient: false,
+})
+
+// 切换渐变方向为首大尾小
+trajectory.setPointStyle({
+  pointGradient: true,
+  pointGradientDirection: 'descend',
 })
 ```
 
@@ -88,6 +105,97 @@ trajectory.setPointStyle({
 trajectory.setTooltipContent(function (index, pos, allPositions) {
   return '点 #' + (index + 1) + '<br/>经度: ' + pos.lng.toFixed(6) + '<br/>纬度: ' + pos.lat.toFixed(6)
 })
+```
+
+## 动态更新
+
+TrajectoryLine 支持创建后动态更新坐标、点位显隐、触发模式等，所有更新均为增量操作，不会全量重建 entity，避免闪烁。
+
+### positions setter
+
+全量替换坐标数组，内部做 diff：新增的点位追加 entity，减少的点位移除 entity，数量不变时仅更新坐标值（通过 `CallbackProperty` 自动响应）。
+
+```javascript
+// 全量替换坐标
+trajectory.positions = [
+  new DC.Position(120.38, 31.10, 1000),
+  new DC.Position(120.39, 31.11, 1200),
+  new DC.Position(120.40, 31.12, 1500),
+]
+```
+
+### addPosition(position, index?)
+
+在末尾或指定索引处添加一个坐标点，自动追加对应的 billboard entity。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `position` | `Position` \| `string` | 要添加的坐标点 |
+| `index` | `number?` | 插入位置索引，省略或 >= 数组长度时追加到末尾 |
+
+```javascript
+// 追加到末尾
+trajectory.addPosition(new DC.Position(120.41, 31.13, 1500))
+
+// 插入到索引 2 处
+trajectory.addPosition(new DC.Position(120.395, 31.115, 1300), 2)
+```
+
+### removePositionAt(index)
+
+移除指定索引的坐标点及对应 entity。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `index` | `number` | 要移除的坐标点索引 |
+
+```javascript
+trajectory.removePositionAt(3)
+```
+
+### removePosition(position)
+
+按坐标值查找并移除坐标点（经纬度及高度均匹配时移除）。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `position` | `Position` \| `string` | 要移除的坐标点 |
+
+```javascript
+trajectory.removePosition(new DC.Position(120.41, 31.13, 1500))
+```
+
+### showPoints getter/setter
+
+动态切换分点显隐，无需重建 entity。
+
+```javascript
+// 隐藏分点
+trajectory.showPoints = false
+
+// 显示分点
+trajectory.showPoints = true
+
+// 读取当前状态
+console.log(trajectory.showPoints)
+```
+
+### tooltipTrigger getter/setter
+
+动态切换 tooltip 触发方式，自动注册/注销 viewer 级 click 事件。
+
+```javascript
+// 切换为仅点击触发
+trajectory.tooltipTrigger = 'click'
+
+// 切换为仅悬停触发
+trajectory.tooltipTrigger = 'hover'
+
+// 切换为两者均可
+trajectory.tooltipTrigger = 'both'
+
+// 读取当前触发模式
+console.log(trajectory.tooltipTrigger)
 ```
 
 ## 事件
@@ -185,5 +293,7 @@ viewer.flyTo(layer)
 - **发光线**默认使用 Cesium 原生 `PolylineGlowMaterialProperty`（发光实线），设置 `dash: true` 后切换为 `PolylineDashMaterialProperty`（发光虚线），可通过 `setStyle({ material: ... })` 完全自定义材质。
 - **发光点**由 Canvas 径向渐变图生成 billboard，按颜色缓存；点尺寸头大尾小（尾点为头点的 1/3）。
 - **分点 Entity** 的 `overlayId` 指向 `TrajectoryLine` 实例，鼠标拾取后会正确派发事件到当前 overlay。
-- **tooltip 触发方式**通过 `tooltipTrigger` 配置，支持 `'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可），默认 `'both'`。
+- **tooltip 触发方式**通过 `tooltipTrigger` 配置，支持 `'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可），默认 `'both'`，运行时可通过 setter 动态切换。
 - **事件富载荷**：在分点上触发 `CLICK` / `MOUSE_OVER` / `MOUSE_OUT` 时，回调 `e` 对象注入 `trajectoryIndex`、`trajectoryPosition`、`trajectoryPositions` 字段，需在 `addOverlay` 之后注册 `.on()` 以确保字段可用。
+- **动态更新**：`positions` setter、`addPosition`、`removePositionAt`、`removePosition` 均为增量操作，通过 `CallbackProperty` 自动响应坐标和尺寸变化，不会全量重建 entity，避免闪烁。
+- **showPoints 切换**：通过 setter 动切换显隐时，已创建的 entity 仅切换 `show` 属性，不会销毁重建；从隐藏切换为显示时若 entity 不存在则自动创建。

@@ -99,6 +99,123 @@
       })
 
       viewer.flyTo(layer)
+
+      // ===== 动态更新测试按钮 =====
+      let btnContainer = document.createElement('div')
+      btnContainer.style.cssText =
+        'position:absolute;top:10px;left:10px;z-index:9999;display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:rgba(0,0,0,0.6);border-radius:6px;'
+      document.body.appendChild(btnContainer)
+
+      function createBtn(label, onClick) {
+        let btn = document.createElement('button')
+        btn.textContent = label
+        btn.style.cssText =
+          'padding:4px 10px;font-size:12px;cursor:pointer;border:1px solid #00FFFF;background:rgba(0,255,255,0.15);color:#00FFFF;border-radius:4px;'
+        btn.onclick = onClick
+        btnContainer.appendChild(btn)
+        return btn
+      }
+
+      // 追加坐标点
+      createBtn('addPosition', function () {
+        let len = trajectory.positions.length
+        let lng = 120.38105869 + len * 0.01 + Math.sin(len * 0.5) * 0.005
+        let lat = 31.10115627 + len * 0.008 + Math.cos(len * 0.3) * 0.003
+        let alt = 1000 + Math.sin(len * 0.4) * 500
+        trajectory.addPosition(new DC.Position(lng, lat, alt))
+        console.log('addPosition → 当前点数:', trajectory.positions.length)
+      })
+
+      // 移除最后一个坐标点
+      createBtn('removePositionAt', function () {
+        let len = trajectory.positions.length
+        if (len <= 2) {
+          console.log('至少保留 2 个点')
+          return
+        }
+        trajectory.removePositionAt(len - 1)
+        console.log('removePositionAt → 当前点数:', trajectory.positions.length)
+      })
+
+      // 切换点位显隐
+      let pointsVisible = true
+      createBtn('toggle showPoints', function () {
+        pointsVisible = !pointsVisible
+        trajectory.showPoints = pointsVisible
+        console.log('showPoints →', pointsVisible)
+      })
+
+      // 切换 tooltipTrigger
+      let triggerCycle = ['both', 'hover', 'click']
+      let triggerIdx = 0
+      createBtn('toggle tooltipTrigger', function () {
+        triggerIdx = (triggerIdx + 1) % triggerCycle.length
+        trajectory.tooltipTrigger = triggerCycle[triggerIdx]
+        console.log('tooltipTrigger →', trajectory.tooltipTrigger)
+      })
+
+      // 更新线样式
+      let dashOn = false
+      createBtn('toggle dash', function () {
+        dashOn = !dashOn
+        trajectory.setStyle({
+          dash: dashOn,
+          color: dashOn
+            ? DC.Color.fromCssColorString('#FF6600')
+            : DC.Color.fromCssColorString('#00FFFF'),
+        })
+        console.log('dash →', dashOn)
+      })
+
+      // 更新点颜色
+      let colorIdx = 0
+      let colors = ['#FFFF00', '#FF00FF', '#00FF00']
+      createBtn('change pointColor', function () {
+        colorIdx = (colorIdx + 1) % colors.length
+        trajectory.setPointStyle({
+          pointColor: DC.Color.fromCssColorString(colors[colorIdx]),
+        })
+        console.log('pointColor →', colors[colorIdx])
+      })
+
+      // 切换渐变方向
+      let dirIdx = 0
+      let dirs = ['ascend', 'descend']
+      createBtn('toggle gradientDir', function () {
+        dirIdx = (dirIdx + 1) % dirs.length
+        trajectory.setPointStyle({
+          pointGradient: true,
+          pointGradientDirection: dirs[dirIdx],
+        })
+        console.log('pointGradientDirection →', dirs[dirIdx])
+      })
+
+      // 切换不渐变/渐变
+      let gradientOn = true
+      createBtn('toggle gradient', function () {
+        gradientOn = !gradientOn
+        trajectory.setPointStyle({
+          pointGradient: gradientOn,
+        })
+        console.log('pointGradient →', gradientOn)
+      })
+
+      // 全量替换坐标
+      createBtn('reset positions', function () {
+        let newPositions = []
+        let startLng = 120.38105869
+        let startLat = 31.10115627
+        let count = 8
+        for (let i = 0; i < count; i++) {
+          let lng = startLng + i * 0.012 + Math.cos(i * 0.4) * 0.004
+          let lat = startLat + i * 0.01 + Math.sin(i * 0.6) * 0.003
+          let alt = 800 + Math.cos(i * 0.5) * 400
+          newPositions.push(new DC.Position(lng, lat, alt))
+        }
+        trajectory.positions = newPositions
+        console.log('reset positions → 点数:', trajectory.positions.length)
+        viewer.flyTo(layer)
+      })
     </script>
   </body>
 </html>
