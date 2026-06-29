@@ -200,6 +200,16 @@
         console.log('pointGradient →', gradientOn)
       })
 
+      // 切换发光/不发光
+      let glowOn = true
+      createBtn('toggle pointGlow', function () {
+        glowOn = !glowOn
+        trajectory.setPointStyle({
+          pointGlow: glowOn,
+        })
+        console.log('pointGlow →', glowOn)
+      })
+
       // 全量替换坐标
       createBtn('reset positions', function () {
         let newPositions = []

@@ -46,6 +46,7 @@ new DC.TrajectoryLine(positions, options)
 | `pointColor` | `Cesium.Color` | `#FFFF00` | 点颜色 |
 | `pointGradient` | `boolean` | `true` | 是否启用点尺寸渐变，`false` 时所有点统一为 `pointSize` |
 | `pointGradientDirection` | `string` | `'ascend'` | 渐变方向：`'ascend'`（首小尾大）、`'descend'`（首大尾小） |
+| `pointGlow` | `boolean` | `true` | 是否启用发光效果，`false` 时点位为实心圆（不发光） |
 
 > **点尺寸规则**：
 > - `pointGradient: false` → 所有点统一为 `pointSize`。
@@ -76,7 +77,7 @@ trajectory.setStyle({
 
 ### setPointStyle(style)
 
-设置发光点样式。仅更新颜色时不会重建 entity，直接替换 billboard 图片；更新 `pointSize` / `pointGradient` / `pointGradientDirection` 时通过 `CallbackProperty` 自动响应，无需重建。
+设置点位样式。仅更新颜色或发光模式时不会重建 entity，直接替换 billboard 图片；更新 `pointSize` / `pointGradient` / `pointGradientDirection` 时通过 `CallbackProperty` 自动响应，无需重建。
 
 ```javascript
 // 更新颜色和尺寸
@@ -94,6 +95,11 @@ trajectory.setPointStyle({
 trajectory.setPointStyle({
   pointGradient: true,
   pointGradientDirection: 'descend',
+})
+
+// 切换为不发光（实心圆点）
+trajectory.setPointStyle({
+  pointGlow: false,
 })
 ```
 

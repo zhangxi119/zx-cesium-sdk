@@ -1,7 +1,7 @@
 /**
  * @Author : zhangxi119
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-06-29 10:47:00
+ * @Last Modified Time : 2026-06-29 12:03:00
  */
 import { Cesium } from '../../../libs'
 import Overlay from '../Overlay'
@@ -43,6 +43,7 @@ class TrajectoryLine extends Overlay {
       pointColor: Cesium.Color.fromCssColorString('#FFFF00'),
       pointGradient: true,
       pointGradientDirection: 'ascend',
+      pointGlow: true,
       ...(options.pointStyle || {}),
     }
 
@@ -184,15 +185,19 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * 生成径向渐变发光点图片（data url），按颜色缓存
+   * 生成点位图片（data url），按颜色+发光模式缓存
+   * pointGlow=true → 径向渐变发光点
+   * pointGlow=false → 实心圆点（不发光）
    * @param color {Cesium.Color} 点颜色
    * @returns {string} data url
    * @private
    */
   _createGlowImage(color) {
     let cssColor = color.toCssColorString()
-    if (this._glowImageCache[cssColor]) {
-      return this._glowImageCache[cssColor]
+    let cacheKey =
+      cssColor + '_' + (this._pointStyle.pointGlow ? 'glow' : 'solid')
+    if (this._glowImageCache[cacheKey]) {
+      return this._glowImageCache[cacheKey]
     }
     let size = 128
     let canvas = document.createElement('canvas')
@@ -200,25 +205,34 @@ class TrajectoryLine extends Overlay {
     canvas.height = size
     let ctx = canvas.getContext('2d')
     let center = size / 2
-    let gradient = ctx.createRadialGradient(
-      center,
-      center,
-      0,
-      center,
-      center,
-      center
-    )
     let r = Math.round(color.red * 255)
     let g = Math.round(color.green * 255)
     let b = Math.round(color.blue * 255)
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`)
-    gradient.addColorStop(0.25, `rgba(${r}, ${g}, ${b}, 0.85)`)
-    gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, 0.35)`)
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`)
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, size, size)
+    if (this._pointStyle.pointGlow) {
+      // 发光模式：径向渐变
+      let gradient = ctx.createRadialGradient(
+        center,
+        center,
+        0,
+        center,
+        center,
+        center
+      )
+      gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`)
+      gradient.addColorStop(0.25, `rgba(${r}, ${g}, ${b}, 0.85)`)
+      gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, 0.35)`)
+      gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`)
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, size, size)
+    } else {
+      // 不发光模式：实心圆
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 1)`
+      ctx.beginPath()
+      ctx.arc(center, center, center, 0, Math.PI * 2)
+      ctx.fill()
+    }
     let dataUrl = canvas.toDataURL()
-    this._glowImageCache[cssColor] = dataUrl
+    this._glowImageCache[cacheKey] = dataUrl
     return dataUrl
   }
 
@@ -557,8 +571,8 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
-   * 设置发光点样式
-   * 仅更新颜色时直接替换 billboard 图片，不重建 entity；
+   * 设置点位样式
+   * 仅更新颜色或发光模式时直接替换 billboard 图片，不重建 entity；
    * 更新 pointSize / pointGradient / pointGradientDirection 时通过 CallbackProperty 自动响应
    * @param style {Object} 点样式配置
    * @returns {TrajectoryLine}
@@ -568,11 +582,15 @@ class TrajectoryLine extends Overlay {
       return this
     }
     let oldColor = this._pointStyle.pointColor
+    let oldGlow = this._pointStyle.pointGlow
     Util.merge(this._pointStyle, style)
-    if (style.pointColor && style.pointColor !== oldColor) {
-      let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+    let colorChanged = style.pointColor && style.pointColor !== oldColor
+    let glowChanged =
+      style.pointGlow !== undefined && style.pointGlow !== oldGlow
+    if (colorChanged || glowChanged) {
+      let image = this._createGlowImage(this._pointStyle.pointColor)
       this._pointEntities.forEach((e) => {
-        e.billboard.image = glowImage
+        e.billboard.image = image
       })
     }
     return this
