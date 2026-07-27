@@ -41,6 +41,9 @@
         let circle = new DC.Circle(item, 500)
         circle.setStyle({
           material: DC.Color.RED,
+          outline: true,
+          outlineColor: DC.Color.BLUE,
+          outlineWidth: 2
         })
         layer.addOverlay(circle)
       })

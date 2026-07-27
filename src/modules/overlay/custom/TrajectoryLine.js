@@ -1,7 +1,7 @@
 /**
  * @Author : zhangxi119
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-06-29 12:03:00
+ * @Last Modified Time : 2026-07-27 14:44:00
  */
 import { Cesium } from '../../../libs'
 import Overlay from '../Overlay'
@@ -32,6 +32,7 @@ class TrajectoryLine extends Overlay {
       color: Cesium.Color.fromCssColorString('#00FFFF'),
       width: 4,
       glowPower: 0.25,
+      glow: true,
       clampToGround: false,
       dash: false,
       dashLength: 16,
@@ -176,6 +177,15 @@ class TrajectoryLine extends Overlay {
         gapColor: Cesium.Color.TRANSPARENT,
         dashLength: this._lineStyle.dashLength,
         dashPattern: this._lineStyle.dashPattern,
+      })
+    }
+    // glow: false 时使用 PolylineOutlineMaterialProperty 纯色材质（无光晕）
+    // ColorMaterialProperty 不适用于 PolylineGraphics 渲染管线，会导致线不可见
+    if (this._lineStyle.glow === false) {
+      return new Cesium.PolylineOutlineMaterialProperty({
+        color: this._lineStyle.color,
+        outlineColor: this._lineStyle.color,
+        outlineWidth: 0,
       })
     }
     return new Cesium.PolylineGlowMaterialProperty({
@@ -554,6 +564,7 @@ class TrajectoryLine extends Overlay {
         style.material ||
         style.color ||
         style.glowPower ||
+        style.glow !== undefined ||
         style.dash !== undefined ||
         style.dashLength !== undefined ||
         style.dashPattern !== undefined

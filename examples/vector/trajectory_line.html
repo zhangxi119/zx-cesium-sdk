@@ -48,7 +48,7 @@
         showPoints: true,
         lineStyle: {
           color: DC.Color.fromCssColorString('#00FFFF'),
-          width: 2,
+          width: 1,
           glowPower: 0.25,
           clampToGround: false,
           dash: false,
@@ -208,6 +208,17 @@
           pointGlow: glowOn,
         })
         console.log('pointGlow →', glowOn)
+      })
+
+      // 切换线发光/不发光
+      let lineGlowOn = true
+      createBtn('toggle lineGlow', function () {
+        lineGlowOn = !lineGlowOn
+        trajectory.setStyle({
+          glow: lineGlowOn,
+          glowPower: lineGlowOn ? 0.25 : 0,
+        })
+        console.log('lineGlow →', lineGlowOn)
       })
 
       // 全量替换坐标

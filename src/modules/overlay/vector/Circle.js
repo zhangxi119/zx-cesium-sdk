@@ -114,7 +114,7 @@ class Circle extends Overlay {
     return Transform.generateCirclePositions(
       this._center,
       this._radius,
-      360,
+      720,
       this._center.alt || 0
     )
   }

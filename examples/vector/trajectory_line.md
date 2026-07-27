@@ -31,8 +31,9 @@ new DC.TrajectoryLine(positions, options)
 |------|------|--------|------|
 | `color` | `Cesium.Color` | `#00FFFF` | 线颜色 |
 | `width` | `number` | `4` | 线宽（像素） |
-| `glowPower` | `number` | `0.25` | 发光强度（仅 `dash: false` 时生效） |
-| `dash` | `boolean` | `false` | 是否使用发光虚线，`true` 时使用 `PolylineDashMaterialProperty` |
+| `glow` | `boolean` | `true` | 是否启用线发光效果，`false` 时使用 `PolylineOutlineMaterialProperty` 纯色渲染（无光晕） |
+| `glowPower` | `number` | `0.25` | 发光强度（仅 `glow: true` 且 `dash: false` 时生效） |
+| `dash` | `boolean` | `false` | 是否使用虚线，`true` 时使用 `PolylineDashMaterialProperty` |
 | `dashLength` | `number` | `16` | 虚线段长度（仅 `dash: true` 时生效） |
 | `dashPattern` | `number` | `255` | 虚线位掩码图案（仅 `dash: true` 时生效） |
 | `clampToGround` | `boolean` | `false` | 是否贴地 |
@@ -57,7 +58,7 @@ new DC.TrajectoryLine(positions, options)
 
 ### setStyle(style)
 
-设置发光线样式。传入 `color` / `glowPower` / `dash` 等会重建线材质；传入 `material` 则使用自定义材质。
+设置发光线样式。传入 `color` / `glowPower` / `glow` / `dash` 等会重建线材质；传入 `material` 则使用自定义材质。
 
 ```javascript
 // 发光实线
@@ -72,6 +73,17 @@ trajectory.setStyle({
   dash: true,
   dashLength: 20,
   dashPattern: 255,
+})
+
+// 关闭线发光（纯色线，无光晕）
+trajectory.setStyle({
+  glow: false,
+})
+
+// 重新开启线发光
+trajectory.setStyle({
+  glow: true,
+  glowPower: 0.25,
 })
 ```
 
@@ -296,7 +308,7 @@ viewer.flyTo(layer)
 ## 注意事项
 
 - **鼠标提示功能**需要手动开启 `viewer.enableMouseOver = true` 和 `viewer.enableMouseMovePick = true`，否则 `MOUSE_OVER` / `MOUSE_OUT` 事件不会触发。
-- **发光线**默认使用 Cesium 原生 `PolylineGlowMaterialProperty`（发光实线），设置 `dash: true` 后切换为 `PolylineDashMaterialProperty`（发光虚线），可通过 `setStyle({ material: ... })` 完全自定义材质。
+- **发光线**默认使用 Cesium 原生 `PolylineGlowMaterialProperty`（发光实线），设置 `dash: true` 后切换为 `PolylineDashMaterialProperty`（虚线），设置 `glow: false` 后切换为 `PolylineOutlineMaterialProperty`（纯色线，无光晕），可通过 `setStyle({ material: ... })` 完全自定义材质。
 - **发光点**由 Canvas 径向渐变图生成 billboard，按颜色缓存；点尺寸头大尾小（尾点为头点的 1/3）。
 - **分点 Entity** 的 `overlayId` 指向 `TrajectoryLine` 实例，鼠标拾取后会正确派发事件到当前 overlay。
 - **tooltip 触发方式**通过 `tooltipTrigger` 配置，支持 `'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可），默认 `'both'`，运行时可通过 setter 动态切换。
