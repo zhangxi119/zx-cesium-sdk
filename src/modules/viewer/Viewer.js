@@ -51,12 +51,16 @@ class Viewer {
       }
     }
 
+    /**
+     * DC 自有选项不应透传给 CesiumWidget（虽无副作用，但保持参数边界清晰）
+     */
+    const { widgets: _widgetOpt, tools: _toolOpt, ...cesiumOptions } = options
     this._delegate =
       typeof container !== 'string'
         ? container
         : new Cesium.CesiumWidget(container, {
             ...DEF_OPTS,
-            ...options,
+            ...cesiumOptions,
           }) // Initialize the viewer
     this._delegate.canvas.parentNode.className = 'viewer-canvas' //re-name the default class
 
@@ -96,12 +100,32 @@ class Viewer {
 
     this._layerGroupCache = {}
     this._layerCache = {}
+    /**
+     * 图层扁平缓存与索引
+     *
+     * 【性能修正】`getLayers()` 旧实现每次调用都会做「双重 `Object.keys` + 逐层 push」，
+     * 分配 1 + N 个数组；而它被 `MouseEvent._getTargetInfo()` 在**每次鼠标事件**上调用
+     * （含每一次 mousemove）。现改为增量维护扁平数组与 `Map` 索引，
+     * 查找与遍历降为 O(1) / 零额外分配。
+     */
+    this._layersFlat = []
+    this._layerIndex = new Map()
 
     /**
      * Registers default widgets
+     *
+     * 支持通过 `options.widgets` 传入白名单以减少启动开销与无用 DOM：
+     * `new Viewer('id', { widgets: ['popup', 'tooltip'], tools: ['drawTool', 'editTool'] })`
+     * 未传入时保持**全集**（与原行为一致，避免破坏既有使用方）。
      */
     let widgets = createWidgets()
+    const widgetWhitelist = Array.isArray(options.widgets)
+      ? new Set(options.widgets)
+      : null
     Object.keys(widgets).forEach((key) => {
+      if (widgetWhitelist && !widgetWhitelist.has(key)) {
+        return
+      }
       this._use(widgets[key])
     })
 
@@ -109,7 +133,13 @@ class Viewer {
      * Registers default tools
      */
     let tools = createTools()
+    const toolWhitelist = Array.isArray(options.tools)
+      ? new Set(options.tools)
+      : null
     Object.keys(tools).forEach((key) => {
+      if (toolWhitelist && !toolWhitelist.has(key)) {
+        return
+      }
       this._use(tools[key])
     })
   }
@@ -300,9 +330,14 @@ class Viewer {
   _addLayer(layer) {
     !this._layerCache[layer.type] && (this._layerCache[layer.type] = {})
     // eslint-disable-next-line no-prototype-builtins
-    if (!Object(this._layerCache[layer.type]).hasOwnProperty(layer.id)) {
+    if (!this._layerCache[layer.type].hasOwnProperty(layer.id)) {
       layer.fire(LayerEventType.ADD, this)
       this._layerCache[layer.type][layer.id] = layer
+      /**
+       * 同步维护扁平缓存与索引
+       */
+      this._layersFlat.push(layer)
+      this._layerIndex.set(layer.id, layer)
     }
   }
 
@@ -312,9 +347,19 @@ class Viewer {
    */
   _removeLayer(layer) {
     // eslint-disable-next-line no-prototype-builtins
-    if (Object(this._layerCache[layer.type]).hasOwnProperty(layer.id)) {
+    if (this._layerCache[layer.type]?.hasOwnProperty(layer.id)) {
       layer.fire(LayerEventType.REMOVE, this)
       delete this._layerCache[layer.type][layer.id]
+      /**
+       * 同步维护扁平缓存与索引
+       */
+      const idx = this._layersFlat.indexOf(layer)
+      if (idx >= 0) {
+        this._layersFlat.splice(idx, 1)
+      }
+      if (this._layerIndex.get(layer.id) === layer) {
+        this._layerIndex.delete(layer.id)
+      }
     }
   }
 
@@ -478,33 +523,31 @@ class Viewer {
    * @returns {boolean}
    */
   hasLayer(layer) {
-    // eslint-disable-next-line no-prototype-builtins
-    return Object(this._layerCache[layer.type]).hasOwnProperty(layer.id)
+    return this._layerIndex.get(layer.id) === layer
   }
 
   /**
    * Returns a layer by id
+   *
+   * 【性能修正】由「`getLayers()` 全量数组分配 + `filter` 线性扫描」改为 O(1) 索引查找
    * @param id
    * @returns {*|undefined}
    */
   getLayer(id) {
-    let filters = this.getLayers().filter((item) => item.id === id)
-    return filters && filters.length ? filters[0] : undefined
+    return this._layerIndex.get(id)
   }
 
   /**
    * Returns all layers
+   *
+   * 【性能修正】返回增量维护的扁平缓存副本。
+   * 旧实现每次调用都做「双重 `Object.keys` + 逐层 push」，而本方法位于
+   * `MouseEvent._getTargetInfo()` 中，会被**每次鼠标事件**（含每次 mousemove）触发。
+   * 返回 `slice()` 副本以保证调用方无法破坏内部缓存。
    * @returns {[]}
    */
   getLayers() {
-    let result = []
-    Object.keys(this._layerCache).forEach((type) => {
-      let cache = this._layerCache[type]
-      Object.keys(cache).forEach((layerId) => {
-        result.push(cache[layerId])
-      })
-    })
-    return result
+    return this._layersFlat.slice()
   }
 
   /**
@@ -514,12 +557,11 @@ class Viewer {
    * @returns {Viewer}
    */
   eachLayer(method, context) {
-    Object.keys(this._layerCache).forEach((type) => {
-      let cache = this._layerCache[type]
-      Object.keys(cache).forEach((layerId) => {
-        method.call(context, cache[layerId])
-      })
-    })
+    const ctx = context || this
+    const layers = this._layersFlat
+    for (let i = 0, n = layers.length; i < n; i++) {
+      method.call(ctx, layers[i])
+    }
     return this
   }
 
@@ -673,16 +715,20 @@ class Viewer {
    * Destroys the viewer.
    */
   destroy() {
-    Object.keys(this._layerCache).forEach((type) => {
-      let cache = this._layerCache[type]
-      Object.keys(cache).forEach((layerId) => {
-        this._removeLayer(cache[layerId])
-      })
-    })
+    /**
+     * 直接遍历扁平缓存副本（`_removeLayer` 会就地修改 `_layersFlat`，故先复制）
+     */
+    const layers = this._layersFlat.slice()
+    for (let i = 0; i < layers.length; i++) {
+      this._removeLayer(layers[i])
+    }
     this._delegate.destroy()
     this._delegate = undefined
     this._baseLayerPicker = undefined
     this._layerCache = {}
+    this._layersFlat = []
+    this._layerIndex.clear()
+    this._layerGroupCache = {}
     this._widgetContainer.parentNode.removeChild(this._widgetContainer)
     this._widgetContainer = undefined
     this._layerContainer.parentNode.removeChild(this._layerContainer)

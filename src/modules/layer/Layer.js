@@ -1,7 +1,7 @@
 /**
  * @Author : Caven Chen
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-06-26 14:50:00
+ * @Last Modified Time : 2026-09-19 18:35:00
  */
 
 import { Cesium } from '../../libs'
@@ -9,6 +9,13 @@ import { Util } from '../utils'
 import State from '../state/State'
 import { LayerEventType, OverlayEventType, LayerEvent } from '../event'
 import LayerType from './LayerType'
+
+/**
+ * 图层类型直查表（小写原名 → 类型值）
+ * 性能优化：`Layer.getLayerType()` 位于 `type` getter 内，被 Viewer 的图层索引逻辑反复调用；
+ * 预建直查表后不再执行 locale 大小写转换。
+ */
+const LAYER_TYPE_MAP = Object.create(null)
 
 class Layer {
   constructor(id) {
@@ -19,7 +26,25 @@ class Layer {
     this._state = undefined
     this._show = true
     this._isGround = false
+    /**
+     * 覆盖物缓存：`{ [overlayId]: Overlay }`
+     *
+     * 说明：**保持普通对象**而非改用 `Map` —— 多个子类
+     * （`VectorLayer` / `HtmlLayer` / `ClusterLayer` / `DynamicLayer` /
+     * `GroundPrimitiveLayer` / `I3SLayer` / `PrimitiveLayer` / `TilesetLayer`）
+     * 在 `clear()` 中会直接 `this._cache = {}` 替换容器，
+     * 若改为 `Map` 将波及这些子类并引入回归风险，收益不成比例。
+     */
     this._cache = {}
+    /**
+     * 业务 id → 覆盖物 索引（`Map<bid, Overlay>`）
+     *
+     * `getOverlayById(id)` 旧实现是 O(n) 线性扫描（且先 `Object.keys()` 分配键数组），
+     * 而它在「按业务 id 查找区域/线体」路径上被反复调用。维护该索引后降为 O(1)。
+     */
+    this._bidIndex = new Map()
+    /** 建立索引时所依据的 `_cache` 容器引用（用于探测子类整体替换容器的情况） */
+    this._bidIndexSource = undefined
     this._attr = {}
     this._layerEvent = new LayerEvent()
     this._layerEvent.on(LayerEventType.ADD, this._onAdd, this)
@@ -115,7 +140,8 @@ class Layer {
       return
     }
     if (this._viewer) {
-      this._cache = {}
+      this._cache.clear()
+      this._bidIndex.clear()
       if (this._delegate instanceof Cesium.PrimitiveCollection) {
         this._delegate.removeAll()
         if (this._isGround) {
@@ -145,12 +171,20 @@ class Layer {
    * @private
    */
   _addOverlay(overlay) {
-    if (!this._cache.hasOwnProperty(overlay.overlayId)) {
-      this._cache[overlay.overlayId] = overlay
-      this._delegate && overlay.fire(OverlayEventType.ADD, this)
-      if (this._state === State.CLEARED) {
-        this._state = State.ADDED
-      }
+    // eslint-disable-next-line no-prototype-builtins
+    if (this._cache.hasOwnProperty(overlay.overlayId)) {
+      return
+    }
+    this._cache[overlay.overlayId] = overlay
+    /**
+     * 同步维护业务 id 索引，使 getOverlayById 为 O(1)
+     */
+    if (overlay.id !== undefined && overlay.id !== null) {
+      this._bidIndex.set(overlay.id, overlay)
+    }
+    this._delegate && overlay.fire(OverlayEventType.ADD, this)
+    if (this._state === State.CLEARED) {
+      this._state = State.ADDED
     }
   }
 
@@ -160,9 +194,17 @@ class Layer {
    * @private
    */
   _removeOverlay(overlay) {
-    if (this._cache.hasOwnProperty(overlay.overlayId)) {
-      this._delegate && overlay.fire(OverlayEventType.REMOVE, this)
-      delete this._cache[overlay.overlayId]
+    // eslint-disable-next-line no-prototype-builtins
+    if (!this._cache.hasOwnProperty(overlay.overlayId)) {
+      return
+    }
+    this._delegate && overlay.fire(OverlayEventType.REMOVE, this)
+    delete this._cache[overlay.overlayId]
+    /**
+     * 仅当索引确实指向该覆盖物时才删除，避免同 id 覆盖时误删新条目
+     */
+    if (this._bidIndex.get(overlay.id) === overlay) {
+      this._bidIndex.delete(overlay.id)
     }
   }
 
@@ -210,18 +252,52 @@ class Layer {
   }
 
   /**
+   * 按业务 id 重建索引
+   *
+   * 子类在 `clear()` 中会整体替换 `this._cache`（`this._cache = {}`），
+   * 直接绕过 `_removeOverlay`；因此这里以「容器引用是否变化」作为失效信号，
+   * 保证索引不会残留已被清除的覆盖物。
+   * @private
+   */
+  _rebuildBidIndex() {
+    this._bidIndex.clear()
+    this._bidIndexSource = this._cache
+    const keys = Object.keys(this._cache)
+    for (let i = 0, n = keys.length; i < n; i++) {
+      const overlay = this._cache[keys[i]]
+      if (overlay && overlay.id !== undefined && overlay.id !== null) {
+        this._bidIndex.set(overlay.id, overlay)
+      }
+    }
+  }
+
+  /**
    * Returns the overlay by bid
+   *
+   * 【性能修正】由 O(n) 线性扫描改为 O(1) 索引查找
    * @param id
    * @returns {any}
    */
   getOverlayById(id) {
-    let overlay = undefined
-    Object.keys(this._cache).forEach((key) => {
-      if (this._cache[key].id === id) {
-        overlay = this._cache[key]
-      }
-    })
-    return overlay
+    if (id === undefined || id === null) {
+      return undefined
+    }
+    /**
+     * 容器被整体替换（子类 clear）时索引失效，需重建
+     */
+    if (this._bidIndexSource !== this._cache) {
+      this._rebuildBidIndex()
+    }
+    let hit = this._bidIndex.get(id)
+    if (hit) {
+      return hit
+    }
+    /**
+     * 兜底：索引未命中（例如外部直接往 `_cache` 写入了新条目）时重建一次再查，
+     * 保证行为与旧的线性扫描完全一致
+     */
+    this._rebuildBidIndex()
+    return this._bidIndex.get(id) || undefined
   }
 
   /**
@@ -242,26 +318,36 @@ class Layer {
 
   /**
    * Iterate through each overlay and pass it as an argument to the callback function
+   *
+   * 说明：改用索引循环 + 直接取键，避免 `Array.prototype.forEach` 的闭包调用开销
+   * （本方法在 `HtmlLayer` 中位于 `postRender` 内，属逐帧路径）
    * @param method
    * @param context
    * @returns {Layer}
    */
   eachOverlay(method, context) {
-    Object.keys(this._cache).forEach((key) => {
-      method && method.call(context || this, this._cache[key])
-    })
+    if (method) {
+      const ctx = context || this
+      const keys = Object.keys(this._cache)
+      for (let i = 0, n = keys.length; i < n; i++) {
+        method.call(ctx, this._cache[keys[i]])
+      }
+    }
     return this
   }
 
   /**
    * Returns all overlays
+   *
+   * 说明：返回值仍为**新数组**（调用方可能持有/排序），改用索引循环避免闭包开销
    * @returns {[]}
    */
   getOverlays() {
-    let result = []
-    Object.keys(this._cache).forEach((key) => {
-      result.push(this._cache[key])
-    })
+    const keys = Object.keys(this._cache)
+    const result = new Array(keys.length)
+    for (let i = 0, n = keys.length; i < n; i++) {
+      result[i] = this._cache[keys[i]]
+    }
     return result
   }
 
@@ -335,12 +421,15 @@ class Layer {
   }
 
   /**
-   * Registers Type
+   * 注册图层类型
+   * 同时维护小写直查表，避免 `getLayerType` 每次做 locale 大小写转换
    * @param type
    */
   static registerType(type) {
     if (type) {
-      LayerType[type.toLocaleUpperCase()] = type.toLocaleLowerCase()
+      const lower = type.toLowerCase()
+      LayerType[type.toUpperCase()] = lower
+      LAYER_TYPE_MAP[lower] = lower
     }
   }
 
@@ -350,7 +439,7 @@ class Layer {
    * @returns {*|undefined}
    */
   static getLayerType(type) {
-    return LayerType[type.toLocaleUpperCase()] || undefined
+    return LAYER_TYPE_MAP[type] || undefined
   }
 }
 

@@ -65,7 +65,33 @@ class ContextMenu extends Widget {
         return self
       },
     })
-    this._handler = new Cesium.ScreenSpaceEventHandler(this._viewer.canvas)
+    /**
+     * 【性能修正】不再在安装时创建 `ScreenSpaceEventHandler`。
+     *
+     * 旧实现在 `_installHook()`（由 `Widget.install()` **无条件**调用）中创建，
+     * 而 `Viewer` 构造时会把全部 13 个 widget 都安装一遍 ——
+     * 也就是说：**即使用户从不使用右键菜单**，同一 canvas 上也会多出一个
+     * `ScreenSpaceEventHandler`（约 10 个 DOM 监听器），
+     * 与 `MouseEvent` 自己的处理器重复分发每一次鼠标事件。
+     *
+     * 现改为启用时创建（`_enableHook`），禁用时销毁。
+     */
+  }
+
+  /**
+   * 启用/禁用联动：按需创建与销毁事件处理器
+   * @private
+   */
+  _enableHook() {
+    super._enableHook()
+    if (this._enable) {
+      if (!this._handler) {
+        this._handler = new Cesium.ScreenSpaceEventHandler(this._viewer.canvas)
+      }
+    } else if (this._handler) {
+      this._handler.destroy()
+      this._handler = undefined
+    }
   }
 
   /**
@@ -73,6 +99,9 @@ class ContextMenu extends Widget {
    * @private
    */
   _bindEvent() {
+    if (!this._handler) {
+      return
+    }
     this._handler.setInputAction((movement) => {
       this._onRightClick(movement)
     }, Cesium.ScreenSpaceEventType.RIGHT_CLICK)
@@ -87,6 +116,9 @@ class ContextMenu extends Widget {
    * @private
    */
   _unbindEvent() {
+    if (!this._handler) {
+      return
+    }
     this._handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK)
     this._handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
   }
