@@ -1,5 +1,93 @@
 # Change Log
 
+### 1.0.8 - 2026-09-19
+
+#### Performance ⚡ (deep optimization, see `DC_LIB_PERF_PLAN.md`)
+
+**Rendering defaults**
+- **`sunBloom` disabled by default**: Cesium defaults `scene.sunBloom = true`, which runs
+  2 full-resolution bloom passes every frame. It is now turned off in the `ViewerOption`
+  constructor; enable it via `setOptions({ showSunBloom: true })` when needed.
+- **`msaaSamples` is no longer force-downgraded**: the old `+options.msaaSamples || 1`
+  silently reduced Cesium's default **4x MSAA to 1 (off)** when the option was omitted.
+  It is now applied only when explicitly provided.
+- **Fixed duplicated `postRender` listener in `Popup`**: `_installHook()` sets
+  `this.enable = true` (which already calls `_bindEvent()`) and then called
+  `_bindEvent()` again, so the positioning math and DOM writes ran twice per frame.
+- **`HawkeyeMap` no longer mutates camera sensitivity unconditionally**: it used to set
+  `camera.percentageChanged = 0.01` (Cesium default `0.5`, i.e. 50x more sensitive)
+  inside `_installHook()`, which runs for **every** viewer even if the widget is never used.
+  It is now applied on enable and restored on disable.
+
+#### Breaking Changes 📣 (behaviour fixes)
+
+- **`ViewerOption.setOptions()` semantics changed**: from "merge and **replay every setter**"
+  to "merge and **apply only the keys provided in this call**". The old behaviour reset
+  unprovided options to defaults (e.g. a single `setOptions` call reset `msaaSamples` to 1,
+  atmosphere/sun/moon to `true` and `resolutionScale` to 1).
+- **`Util.merge()` now copies own properties only** (the old `for...in` also copied inherited ones).
+- **`MouseEvent` no longer computes `position` / `wgs84Position` by default** (see below).
+
+#### Performance ⚡ (geometry and hot paths)
+
+- **`Polyline.positions` is now a constant array** (was a non-constant `CallbackProperty`).
+  Cesium treats non-constant properties as **dynamic geometry** and runs
+  `primitives.removeAndDestroy(primitive)` + `primitives.add(new Primitive(...))`
+  **every frame** — destroying and rebuilding GPU vertex buffers continuously.
+  This was the dominant bottleneck for steady-state 3D frame rate.
+- **`Circle.rotateAmount`, `CustomBillboard.setBottomCircle`, `CustomLabel.setBottomCircle`**:
+  no callback is installed when `rotateAmount` is 0 (the default), keeping geometry static.
+  When rotation is requested it is now **time-based** instead of per-frame accumulation
+  (the old version rotated faster or slower depending on frame rate).
+- **`TrajectoryLine`**: line `positions` and every point's `position`/`width`/`height`
+  are constants now (a 600-point trajectory previously created 1800 per-frame callbacks).
+- **`Model.rotateAmount`**: no longer mutates `_position.heading` as a side effect;
+  the callback is removed when rotation is disabled.
+- **`Track`**: path `positions` is now constant. The old version rebuilt geometry every
+  frame **even after playback had finished**.
+- **`MouseEvent`**:
+  - No longer calls `scene.pickPosition()` on every mouse move (a GPU depth read-back that
+    **stalls the render pipeline**). New `enableMouseMovePickPosition` option (default `false`);
+    use `wgs84SurfacePosition` instead (pure CPU ellipsoid pick).
+  - `_adjustPosition` no longer calls `getBoundingClientRect()` on every invocation
+    (forced synchronous layout); results are cached per canvas size, and `_getMouseInfo`
+    no longer computes it twice.
+  - `_raiseEvent` short-circuits when nothing is picked and the viewer has no listeners,
+    skipping target-info construction (`getLayers()` allocation + linear search).
+  - `_registerEvent` only registers actions for event types DC actually dispatches.
+- **`Viewer.getLayers()` / `getLayer()` / `hasLayer()`**: now use an incrementally maintained
+  flat array and a `Map` index. The old implementation allocated arrays via double `Object.keys`
+  on **every mouse event**.
+- **`Layer.getOverlayById()`**: O(n) linear scan replaced by an O(1) index
+  (invalidated correctly when subclasses replace `_cache` in `clear()`).
+- **`Transform`**: batch conversion reuses a scratch `Cartographic` and an optional result array;
+  `generateCirclePositions` performs zero intermediate allocations
+  (previously 3 temporary objects per point — 2160 for a 720-segment ring).
+- **`Parse.parsePosition`**: fast path for `Position` instances; removed `Object()` boxing
+  and two prototype-chain `hasOwnProperty` lookups (called once per point by `parsePositions`).
+- **`Util.isPromise`**: no longer uses `Promise.resolve(obj) == obj` (allocates a Promise);
+  it is now a feature check. This method sits in the `Overlay.show` setter, a visibility hot path.
+- **`Util.uuid`**: now a counter plus random suffix, keeping the `D-` prefix format.
+- **Type lookups**: `getXxxType()` on `Overlay` / `Layer` / `Widget` no longer uses
+  `toLocaleUpperCase()` (locale-aware and significantly slower); a lowercase lookup table
+  is built at registration time instead.
+- **`ContextMenu`**: its `ScreenSpaceEventHandler` is created on enable and destroyed on disable
+  (previously every viewer got an extra handler duplicating mouse event dispatch).
+
+#### Features ✨
+- `Viewer` accepts `widgets` / `tools` allow-lists to skip unused widgets:
+  ```js
+  new DC.Viewer('container', {
+    widgets: ['popup', 'tooltip'],
+    tools: ['drawTool', 'editTool']
+  })
+  ```
+  The full set is still installed when the options are omitted.
+
+#### Tests ✅
+- Added `npm run verify:perf`: a jsdom-based runtime correctness suite
+  (83 assertions covering all of the above).
+
 ### 4.2.0 - 2025-02-09
 
 #### Breaking Changes 📣

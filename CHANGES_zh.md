@@ -1,5 +1,84 @@
 # Change Log
 
+### 1.0.8 - 2026-09-19
+
+#### 性能优化 ⚡（深度优化，详见 `DC_LIB_PERF_PLAN.md`）
+
+**渲染默认值**
+- **`sunBloom` 默认关闭**：Cesium 默认 `scene.sunBloom = true`，每帧执行 2 个全分辨率泛光 pass。
+  现于 `ViewerOption` 构造期关闭；需要时用 `setOptions({ showSunBloom: true })` 开启。
+- **`msaaSamples` 不再被强制降级**：旧实现 `+options.msaaSamples || 1` 在未传参时会把
+  Cesium 默认的 **4x MSAA 降为 1（关闭）**；现仅在显式传入时覆盖。
+- **修复 `Popup` 的 `postRender` 监听重复注册**：`_installHook()` 中
+  `this.enable = true` 已经触发过 `_bindEvent()`，随后又显式调用一次，
+  导致弹框可见时每帧执行两遍定位计算与 DOM 写入。
+- **`HawkeyeMap` 不再无条件修改相机灵敏度**：原在 `_installHook()`（**无条件执行**）
+  中把 `camera.percentageChanged` 从 Cesium 默认的 `0.5` 改为 `0.01`（敏感度 50 倍），
+  即使从未启用鹰眼图也会生效。现改为启用时设置、禁用时恢复。
+
+#### Breaking Changes 📣（行为修正）
+
+- **`ViewerOption.setOptions()` 语义变更**：由「累积合并 + **重放全部 setter**」改为
+  「累积合并 + **只应用本次传入的键**」。
+  旧行为会把未传入的项重置为默认值（典型症状：调用一次 `setOptions` 就把
+  `msaaSamples` 重置为 1、大气层/太阳/月亮重置为 `true`、`resolutionScale` 重置为 1）。
+- **`Util.merge()` 只拷贝自有属性**（原 `for...in` 会连继承属性一起拷贝）。
+- **`MouseEvent` 的 `position` / `wgs84Position` 默认不再计算**（见下）。
+
+#### 性能优化 ⚡（几何与热路径）
+
+- **`Polyline.positions` 改为恒定数组**（原为非恒定 `CallbackProperty`）。
+  Cesium 会把非恒定属性判定为**动态几何**，每帧执行
+  `primitives.removeAndDestroy(primitive)` + `primitives.add(new Primitive(...))`
+  —— 即**每帧销毁并重建 GPU 顶点缓冲**。这是三维稳态帧率的主要瓶颈。
+  现改为普通数组（包装为 `ConstantProperty`），几何仅在数据变更时构建一次。
+- **`Circle.rotateAmount` / `CustomBillboard.setBottomCircle` / `CustomLabel.setBottomCircle`**：
+  `rotateAmount` 为 0（默认）时不再安装回调，几何保持静态；
+  需要旋转时改为**基于时间**计算（原按**帧**累加，转速会随帧率变化）。
+- **`TrajectoryLine`**：线的 `positions` 与每个分点的 `position`/`width`/`height`
+  全部改为恒定属性（原一条 600 点轨迹会产生 1800 个逐帧求值的回调）。
+- **`Model.rotateAmount`**：不再副作用式改写 `_position.heading`；关闭旋转时移除回调。
+- **`Track`（历史轨迹）**：路径 `positions` 改为恒定属性。
+  原实现即使在**回放结束后**仍每帧重建几何。
+- **`MouseEvent`**：
+  - 不再每次鼠标移动调用 `scene.pickPosition()`（GPU 深度回读，**阻塞渲染流水线**）；
+    新增 `enableMouseMovePickPosition`（默认 `false`）按需开启。请改用
+    `wgs84SurfacePosition`（纯 CPU 椭球拾取）。
+  - `_adjustPosition` 不再每次调用 `getBoundingClientRect()`（强制同步布局），改为按尺寸缓存；
+    且 `_getMouseInfo` 不再重复计算两次。
+  - `_raiseEvent` 增加**订阅者前置短路**：未拾取到目标且 viewer 无订阅者时直接返回，
+    不再构造目标信息（跳过 `getLayers()` 分配与线性查找）。
+  - `_registerEvent` 只为 `MouseEventType` 中实际派发的类型注册动作。
+- **`Viewer.getLayers()` / `getLayer()` / `hasLayer()`**：改为增量维护扁平数组与 `Map` 索引。
+  旧实现每次调用都做「双重 `Object.keys` + 逐层 push」，而它位于每次鼠标事件的路径上。
+- **`Layer.getOverlayById()`**：由 O(n) 线性扫描改为 O(1) 索引（并对子类
+  `clear()` 整体替换 `_cache` 的情况做了索引失效处理）。
+- **`Transform`**：批量坐标转换改为复用临时 `Cartographic` 与出参数组；
+  `generateCirclePositions` 全程零中间分配（原每点分配 3 个临时对象，720 段即 2160 次）。
+- **`Parse.parsePosition`**：`Position` 实例走快路径；去掉 `Object()` 装箱与两次
+  `hasOwnProperty` 原型查找（`parsePositions` 对每个点调用它）。
+- **`Util.isPromise`**：不再用 `Promise.resolve(obj) == obj`（每次分配 Promise）；
+  改为特征判断。该方法位于 `Overlay.show` setter，属显隐切换热路径。
+- **`Util.uuid`**：改为自增序号 + 随机后缀，保留 `D-` 前缀格式。
+- **类型查找**：`Overlay` / `Layer` / `Widget` 的 `getXxxType()` 去掉 `toLocaleUpperCase()`
+  （locale 敏感且明显慢于 `toUpperCase`），改为注册时预建的小写直查表。
+- **`ContextMenu`**：`ScreenSpaceEventHandler` 由安装时创建改为启用时创建、禁用时销毁
+  （原实现会让每个 Viewer 都多出一个事件处理器，与 `MouseEvent` 重复分发鼠标事件）。
+
+#### Features ✨
+- `Viewer` 新增 `widgets` / `tools` 选项白名单，可跳过不需要的控件以降低启动开销：
+  ```js
+  new DC.Viewer('container', {
+    widgets: ['popup', 'tooltip'],
+    tools: ['drawTool', 'editTool']
+  })
+  ```
+  未传入时保持原有全集行为。
+
+#### Tests ✅
+- 新增 `npm run verify:perf`：基于 jsdom 的运行时正确性验证脚本
+  （83 项断言，覆盖上述全部改动）。
+
 ### 4.2.0 - 2025-02-09
 
 #### Breaking Changes 📣
