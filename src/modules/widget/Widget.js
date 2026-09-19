@@ -1,9 +1,17 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 18:40:00
  */
 
 import State from '../state/State'
 import WidgetType from './WidgetType'
+
+/**
+ * 控件类型直查表（小写原名 → 类型值）
+ * 性能优化：避免 `getWidgetType` 每次做 locale 大小写转换
+ */
+const WIDGET_TYPE_MAP = Object.create(null)
 
 class Widget {
   constructor() {
@@ -139,21 +147,23 @@ class Widget {
   }
 
   /**
-   * Registers type
+   * 注册类型（同时维护小写直查表）
    * @param type
    */
   static registerType(type) {
     if (type) {
-      WidgetType[type.toLocaleUpperCase()] = type.toLocaleLowerCase()
+      const lower = type.toLowerCase()
+      WidgetType[type.toUpperCase()] = lower
+      WIDGET_TYPE_MAP[lower] = lower
     }
   }
 
   /**
-   *
+   * 获取类型值
    * @param type
    */
   static getWidgetType(type) {
-    return WidgetType[type.toLocaleUpperCase()] || undefined
+    return WIDGET_TYPE_MAP[type] || undefined
   }
 }
 

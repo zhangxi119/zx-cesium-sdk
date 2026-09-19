@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 18:30:00
  */
 
 import { Cesium } from '../../libs'
@@ -7,6 +9,16 @@ import State from '../state/State'
 import { Util } from '../utils'
 import { OverlayEventType, OverlayEvent } from '../event'
 import OverlayType from './OverlayType'
+
+/**
+ * 覆盖物类型直查表（小写原名 → 类型值）
+ *
+ * 性能优化：`Overlay.getOverlayType()` 位于各覆盖物类的 `type` getter 内，
+ * 被 `Layer._getLayerCollection(this.type)` 等路径反复调用。
+ * 旧实现每次都执行 `type.toLocaleUpperCase()`（需查询 locale 数据，**显著慢于**
+ * `toUpperCase`，且会产生临时字符串）。改为注册时预建直查表后，查找变为**零转换的一次属性读取**。
+ */
+const OVERLAY_TYPE_MAP = Object.create(null)
 
 class Overlay {
   constructor() {
@@ -323,22 +335,26 @@ class Overlay {
   }
 
   /**
+   * 注册覆盖物类型
    *
+   * 同时写入大写键（保持 `OverlayType` 既有可读结构）与小写直查表（供 getOverlayType 零转换查找）
    * @param type
    */
   static registerType(type) {
     if (type) {
-      OverlayType[type.toLocaleUpperCase()] = type.toLocaleLowerCase()
+      const lower = type.toLowerCase()
+      OverlayType[type.toUpperCase()] = lower
+      OVERLAY_TYPE_MAP[lower] = lower
     }
   }
 
   /**
-   *
+   * 获取覆盖物类型值
    * @param type
    * @returns {*|undefined}
    */
   static getOverlayType(type) {
-    return OverlayType[type.toLocaleUpperCase()] || undefined
+    return OVERLAY_TYPE_MAP[type] || undefined
   }
 }
 
