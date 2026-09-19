@@ -47,7 +47,7 @@
   会落入 `base = 0.975` 的降级分支，使箭头随线宽自适应的逻辑失效。
   已改为与 Cesium 一致的 `#if (__VERSION__ == 300 || defined(GL_OES_standard_derivatives))`。
 
-#### 性能优化 ⚡（深度优化，详见 `DC_LIB_PERF_PLAN.md`）
+#### 性能优化 ⚡（深度优化，详见应用侧仓库 `ms-fe-cacs/docs/DC_LIB_PERF_PLAN.md`）
 
 **渲染默认值**
 - **`sunBloom` 默认关闭**：Cesium 默认 `scene.sunBloom = true`，每帧执行 2 个全分辨率泛光 pass。

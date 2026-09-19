@@ -17,3 +17,5 @@ package-lock.json
 .DS_Store
 .history
 test
+# npm pack 产物（发布包由 dist/ 现场打包生成，不入库）
+*.tgz

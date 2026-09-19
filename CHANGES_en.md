@@ -54,7 +54,7 @@
   fell into the `base = 0.975` fallback and lost the width-adaptive arrow head.
   It now matches Cesium's `#if (__VERSION__ == 300 || defined(GL_OES_standard_derivatives))`.
 
-#### Performance ⚡ (deep optimization, see `DC_LIB_PERF_PLAN.md`)
+#### Performance ⚡ (deep optimization, see `ms-fe-cacs/docs/DC_LIB_PERF_PLAN.md` in the app repo)
 
 **Rendering defaults**
 - **`sunBloom` disabled by default**: Cesium defaults `scene.sunBloom = true`, which runs

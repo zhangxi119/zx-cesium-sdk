@@ -340,6 +340,10 @@ const EXAMPLE_LIST = [
         page: 'polyline_dash_arrow.html',
       },
       {
+        name: '抗锯齿虚线',
+        page: 'polyline_dash_aa.html',
+      },
+      {
         name: '方向线',
         page: 'polyline_direction.html',
       },

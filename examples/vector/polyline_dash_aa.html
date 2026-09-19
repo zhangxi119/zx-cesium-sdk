@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>dc-example</title>
+  <script src="/libs/dc-sdk/dc.min.js"></script>
+  <link href="/libs/dc-sdk/dc.min.css" type="text/css" rel="stylesheet" />
+  <link href="../index.css" type="text/css" rel="stylesheet" />
+</head>
+
+<body>
+<div id="viewer-container" class="viewer-container"></div>
+<script>
+  DC.config.baseUrl = '../libs/dc-sdk/resources/'
+  let viewer = new DC.Viewer('viewer-container')
+  let baseLayer = DC.ImageryLayerFactory.createImageryLayer(
+    DC.ImageryType.AMAP,
+    {
+      style: 'img',
+      crs: 'WGS84'
+    }
+  )
+  viewer.addBaseLayer(baseLayer, {
+    brightness: 0.1
+  })
+
+  let layer = new DC.VectorLayer('layer')
+  viewer.addLayer(layer)
+
+  /**
+   * 抗锯齿虚线：`DC.PolylineDashMaterialProperty` 已指向 AA 实现（材质 PolylineDashAA）。
+   * 因此**既有写法零改动**即可获得平滑的虚线端面。
+   *
+   * 下面刻意用 1 / 2 / 3 px 三种细线铺开 —— 锯齿在细线上最明显，
+   * 也与本项目「飞手连线、角度射线、测量虚线」的实际用量一致。
+   */
+  const lines = [
+    { positions: '-75, 40; -45, 40', width: 1, dashLength: 8 },
+    { positions: '-75, 35; -45, 35', width: 2, dashLength: 16 },
+    { positions: '-75, 30; -45, 30', width: 3, dashLength: 24 }
+  ]
+
+  lines.forEach(item => {
+    let polyline = new DC.Polyline(item.positions)
+    polyline.setStyle({
+      width: item.width,
+      material: new DC.PolylineDashMaterialProperty({
+        color: DC.Color.YELLOW,
+        dashLength: item.dashLength
+      }),
+      // 公里级短距连线：跳过大地线加密（positions 已是恒定属性，几何按需构建）
+      arcType: 0
+    })
+    layer.addOverlay(polyline)
+  })
+
+  // 对照：双色虚线（两侧都不透明时按覆盖率线性混合 RGB）
+  let twoColor = new DC.Polyline('-75, 25; -45, 25')
+  twoColor.setStyle({
+    width: 3,
+    material: new DC.PolylineDashMaterialProperty({
+      color: DC.Color.CYAN,
+      gapColor: DC.Color.RED,
+      dashLength: 32
+    }),
+    arcType: 0
+  })
+  layer.addOverlay(twoColor)
+
+  // 对照：显式使用类名（等价写法，便于按需只替换单条线）
+  let explicit = new DC.Polyline('-75, 20; -45, 20')
+  explicit.setStyle({
+    width: 2,
+    material: new DC.PolylineDashAAMaterialProperty({
+      color: DC.Color.LIME,
+      dashLength: 16
+    }),
+    arcType: 0
+  })
+  layer.addOverlay(explicit)
+
+  viewer.flyTo(layer)
+</script>
+</body>
+</html>
