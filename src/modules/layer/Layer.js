@@ -140,8 +140,17 @@ class Layer {
       return
     }
     if (this._viewer) {
-      this._cache.clear()
+      /**
+       * 清空覆盖物容器与业务 id 索引
+       *
+       * 注意：`_cache` 为**普通对象**（未改用 Map —— 多个子类在 clear() 中会整体替换它，
+       * 改 Map 会波及子类），因此这里必须**整体替换**而非调用 `clear()`；
+       * 同时清空 `_bidIndex` 并把 `_bidIndexSource` 置为失效，
+       * 避免索引残留已移除的覆盖物。
+       */
+      this._cache = {}
       this._bidIndex.clear()
+      this._bidIndexSource = undefined
       if (this._delegate instanceof Cesium.PrimitiveCollection) {
         this._delegate.removeAll()
         if (this._isGround) {
