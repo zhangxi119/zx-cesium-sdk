@@ -2,6 +2,58 @@
 
 ### 1.0.8 - 2026-09-19
 
+#### Line antialiasing 🪄 (fixes "severe polyline jaggedness")
+
+> Context: Cesium's polyline shaders contain **no analytic antialiasing** —
+> `PolylineFS.glsl` outputs the material colour directly and `PolylineVS.glsl` only performs a
+> `width + 0.5` half-pixel expansion. Polyline edges can therefore only be smoothed by
+> MSAA / FXAA / supersampling. DC previously broke that chain in two places and had no
+> antialiasing at all in its dash material. All of it is fixed here.
+
+- **`orderIndependentTranslucency` now defaults to `false`** (in `Viewer`'s `DEF_OPTS`).
+  This is the **single most important item**: Cesium defaults it to `true`, and while it is on
+  every **translucent** primitive (dashed lines, glow lines, colours with alpha < 1) is rendered
+  into OIT's own set of **single-sampled** framebuffers (none of the four `FramebufferManager`
+  instances in `OIT.js` receives a sample count, and the colour textures are created without one).
+  As a result **`scene.msaaSamples` has no effect on them at all**.
+  With OIT off, translucent primitives share the multisampled `globeDepth` framebuffer
+  (`GlobeDepth.update` forwards `numSamples` to its output FBO, and `Scene.resolveFramebuffers()`
+  samples from that FBO when `!useOIT`), so MSAA applies throughout — and OIT's extra FBOs and
+  composite passes are skipped as a bonus. The trade-off is that translucent blending degrades
+  from order-independent to per-primitive depth sorting, which is invisible for GIS scenes
+  dominated by lines, polygons, circles and labels. Pass
+  `orderIndependentTranslucency: true` to restore Cesium's behaviour.
+
+- **Canvas `image-rendering` now defaults to `auto`**.
+  `CesiumWidget` unconditionally writes `FeatureDetection.imageRenderingValue()`, which is
+  **`pixelated`** (nearest-neighbour) in Chrome and Firefox. When the drawing buffer is larger
+  than the CSS size (`resolutionScale > 1` or `useBrowserRecommendedResolution = false`),
+  the browser downsamples with nearest-neighbour and **cancels the benefit of supersampling**.
+  `Viewer` now overrides it to `auto`; pass `imageRendering: 'pixelated'` to restore.
+
+- **New antialiased dash material `PolylineDashAA`**, and the
+  `PolylineDashMaterialProperty` export now **points at it**.
+  Cesium's `PolylineDash` material hard-quantises a 16-bit mask with `fract` + `floor`, so its
+  dash ends are hard-edged. Crucially that aliasing lives **inside** the polyline quad, where
+  **MSAA cannot help at all** (MSAA only resolves triangle edges) — it must be smoothed
+  analytically in the shader. For reference, of Cesium's three polyline materials
+  `PolylineGlow` uses a continuous falloff (naturally smooth) and `PolylineOutline` calls
+  `czm_antialias` (already antialiased) — **only `PolylineDash` was left out**.
+  The new implementation derives the mask scale in screen space with `fwidth` and applies a
+  **3-tap box filter** at half-pixel spacing to obtain the solid coverage, then blends by it.
+  It also fixes RGB dilution of the solid colour by a transparent gap under
+  **non-premultiplied alpha** (which otherwise darkens the antialiased transition band).
+  - New export: `PolylineDashAAMaterialProperty`
+  - **`PolylineDashMaterialProperty` now resolves to this implementation** (it extends Cesium's
+    class, so constructor options, values and `instanceof` are all equivalent) —
+    **existing call sites get smooth dashes with no code change**
+  - DC's own dash usages (`TrajectoryLine` and 6 `measure` types) were switched over
+
+- **Fixed the derivative guard in `PolylineDashArrowMaterial` that made it ineffective on WebGL2.**
+  The old `#ifdef GL_OES_standard_derivatives` is not defined under WebGL2 (GLSL ES 3.00), so it
+  fell into the `base = 0.975` fallback and lost the width-adaptive arrow head.
+  It now matches Cesium's `#if (__VERSION__ == 300 || defined(GL_OES_standard_derivatives))`.
+
 #### Performance ⚡ (deep optimization, see `DC_LIB_PERF_PLAN.md`)
 
 **Rendering defaults**

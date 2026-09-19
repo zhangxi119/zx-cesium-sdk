@@ -6,6 +6,7 @@ import { Cesium } from '../../../libs'
 import DrawPolyline from '../draw/DrawPolyline'
 import EditPolyline from '../edit/EditPolyline'
 import MeasureBase from '../MeasureBase'
+import PolylineDashAAMaterialProperty from '../../material/property/polyline/PolylineDashAAMaterialProperty'
 
 class Height extends MeasureBase {
   constructor() {
@@ -86,7 +87,7 @@ class Height extends MeasureBase {
    */
   start(measure, options) {
     this._startHook(measure, options)
-    let helpLineMaterial = new Cesium.PolylineDashMaterialProperty({
+    let helpLineMaterial = new PolylineDashAAMaterialProperty({
       color: Cesium.Color.GREENYELLOW,
     })
     this._helpLine.polyline.material = helpLineMaterial
@@ -96,7 +97,7 @@ class Height extends MeasureBase {
       material: options.material || Cesium.Color.YELLOW.withAlpha(0.6),
       depthFailMaterial:
         options.depthFailMaterial ||
-        new Cesium.PolylineDashMaterialProperty({
+        new PolylineDashAAMaterialProperty({
           color: Cesium.Color.YELLOW.withAlpha(0.6),
         }),
       width: options.width || 2,

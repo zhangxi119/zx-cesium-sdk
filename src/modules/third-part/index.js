@@ -43,7 +43,20 @@ export const ModelAnimationLoop = Cesium.ModelAnimationLoop
 // P
 export const PolylineArrowMaterialProperty =
   Cesium.PolylineArrowMaterialProperty
-export const PolylineDashMaterialProperty = Cesium.PolylineDashMaterialProperty
+/**
+ * `PolylineDashMaterialProperty` —— **DC 增强实现**（非 Cesium 原生直出）
+ *
+ * Cesium 原生的 `PolylineDash` 材质在片元着色器里对虚线掩码做硬二值化，端面呈硬边锯齿；
+ * 且该锯齿位于折线四边形**内部**，MSAA 无法处理（MSAA 只作用于三角形边缘）。
+ *
+ * DC 的实现（`material/property/polyline/PolylineDashAAMaterialProperty`）
+ * 继承自 `Cesium.PolylineDashMaterialProperty`，构造参数/取值/`instanceof` 完全等价，
+ * 仅把材质类型指向带解析式抗锯齿的 `PolylineDashAA`（用 `fwidth` + 3 点箱式滤波求覆盖率）。
+ *
+ * 因此这里**直接替换**该导出：既有调用方无需改动即可获得平滑虚线。
+ * 需要 Cesium 原始行为时，可从 `cesium` 直接引入 `PolylineDashMaterialProperty`。
+ */
+export { default as PolylineDashMaterialProperty } from '../material/property/polyline/PolylineDashAAMaterialProperty'
 export const PolylineGlowMaterialProperty = Cesium.PolylineGlowMaterialProperty
 export const PolylineOutlineMaterialProperty =
   Cesium.PolylineOutlineMaterialProperty

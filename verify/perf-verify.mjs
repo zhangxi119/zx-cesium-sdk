@@ -311,5 +311,107 @@ section('G1 · Popup 重复监听修复（静态校验）')
   ok('_bindEvent 保存了移除函数（避免泄漏）', /_removePostRender/.test(code))
 }
 
+// ------------------------------------------------- AA · 线体抗锯齿（虚线材质）
+section('AA · 抗锯齿虚线材质（PolylineDashAA）')
+{
+  const AA = DC.PolylineDashAAMaterialProperty
+  ok('已导出 PolylineDashAAMaterialProperty', typeof AA === 'function')
+  ok(
+    '是其基类 Cesium.PolylineDashMaterialProperty 的子类（instanceof 成立）',
+    new AA() instanceof Cesium.PolylineDashMaterialProperty
+  )
+  /**
+   * 关键：DC 既有的 `PolylineDashMaterialProperty` 导出已**直接替换**为抗锯齿实现，
+   * 使既有调用方（如 `new DC.PolylineDashMaterialProperty({...})`）无需改动即可获得平滑虚线。
+   */
+  ok(
+    'PolylineDashMaterialProperty 导出已指向抗锯齿实现（既有代码免改动受益）',
+    DC.PolylineDashMaterialProperty === AA
+  )
+  ok(
+    '该导出实例的 getType 亦为 PolylineDashAA',
+    new DC.PolylineDashMaterialProperty().getType() === 'PolylineDashAA'
+  )
+
+  const prop = new AA({ color: Cesium.Color.RED, dashLength: 24, dashPattern: 255 })
+  ok("getType() 指向 DC 注册的 'PolylineDashAA'", prop.getType() === 'PolylineDashAA', prop.getType())
+
+  const mat = Cesium.Material._materialCache.getMaterial('PolylineDashAA')
+  ok('材质已在 Material._materialCache 中注册', !!mat)
+  ok(
+    '材质声明为 translucent（虚拟间隙需要 alpha 混合）',
+    !!mat && typeof mat.translucent === 'function' && mat.translucent({}) === true,
+    !!mat ? typeof mat.translucent : 'no material'
+  )
+
+  // 材质 uniform 默认值应与 Cesium 的 PolylineDash 保持一致（可无缝替换）
+  const cesiumDash = Cesium.Material._materialCache.getMaterial('PolylineDash')
+  ok('存在 Cesium 原生 PolylineDash 材质（对照）', !!cesiumDash)
+
+  // 着色器源码中应包含解析式抗锯齿的关键要素
+  const source = mat?.fabric?.source ?? ''
+  ok('着色器含 fwidth（屏幕空间导数）', source.includes('fwidth'))
+  ok('着色器含 coverage（覆盖率混合）', source.includes('coverage'))
+  ok('着色器含 3 点箱式滤波的掩码采样', source.includes('dashMask'))
+  ok(
+    '导数守卫与 Cesium 一致（覆盖 WebGL2）',
+    source.includes('__VERSION__ == 300')
+  )
+  ok(
+    '保留 rotate(v_polylineAngle) 以对齐线方向',
+    source.includes('v_polylineAngle')
+  )
+  ok(
+    '间隙透明时不平稀释实线 RGB（非预乘 alpha 修正）',
+    /otherColor\.a\s*>\s*0\.0/.test(source)
+  )
+
+  // 取值语义与 Cesium 原版一致
+  const t = Cesium.JulianDate.now()
+  const v = prop.getValue(t)
+  ok('getValue 返回 color', v.color instanceof Cesium.Color)
+  ok('getValue 返回 gapColor', v.gapColor instanceof Cesium.Color)
+  ok('getValue 返回 dashLength', v.dashLength === 24, v.dashLength)
+  ok('getValue 返回 dashPattern', v.dashPattern === 255, v.dashPattern)
+
+  const dflt = new AA().getValue(t)
+  ok('默认 color 为 WHITE（与 Cesium 一致）', Cesium.Color.equals(dflt.color, Cesium.Color.WHITE))
+  ok('默认 gapColor 为 TRANSPARENT（与 Cesium 一致）', dflt.gapColor.alpha === 0)
+  ok('默认 dashLength 为 16（与 Cesium 一致）', dflt.dashLength === 16, dflt.dashLength)
+  ok('默认 dashPattern 为 255（与 Cesium 一致）', dflt.dashPattern === 255, dflt.dashPattern)
+
+  ok('equals 自反', prop.equals(prop) === true)
+  ok('equals 结构等价', prop.equals(new AA({ color: Cesium.Color.RED, dashLength: 24, dashPattern: 255 })) === true)
+  ok('equals 对不同参数返回 false', prop.equals(new AA({ color: Cesium.Color.BLUE })) === false)
+}
+
+section('AA · DC 自身线体已切换到抗锯齿虚线')
+{
+  const traj = new DC.TrajectoryLine(
+    [new DC.Position(116, 39, 100), new DC.Position(116.1, 39.1, 110)],
+    { showPoints: false, lineStyle: { dash: true } }
+  )
+  const material = traj.delegate.polyline.material.getValue(Cesium.JulianDate.now())
+  ok(
+    'TrajectoryLine 的 dash 材质为 DC 抗锯齿虚线的 getType',
+    traj._createLineMaterial().getType() === 'PolylineDashAA'
+  )
+  ok('该材质可直接被 Cesium 取值（结构正确）', !!material && !!material.color)
+}
+
+section('AA · 折线材质抗锯齿现状（与 Cesium 对照）')
+{
+  const dashSrc = Cesium.Material._materialCache.getMaterial('PolylineDash')?.fabric?.source ?? ''
+  const outlineSrc = Cesium.Material._materialCache.getMaterial('PolylineOutline')?.fabric?.source ?? ''
+  ok(
+    'Cesium 原生 PolylineDash 不含任何抗锯齿（本材质补齐的原因）',
+    !dashSrc.includes('fwidth') && !dashSrc.includes('czm_antialias')
+  )
+  ok(
+    'Cesium 原生 PolylineOutline 已含 czm_antialias（说明这是 Cesium 自身的不一致）',
+    outlineSrc.includes('czm_antialias')
+  )
+}
+
 console.log(`\n================ 结果: ${pass} 通过 / ${fail} 失败 ================`)
 process.exit(fail === 0 ? 0 : 1)

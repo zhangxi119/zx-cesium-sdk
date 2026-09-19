@@ -37,6 +37,7 @@ export { default as EllipsoidTrailMaterialProperty } from './property/ellipsoid/
 export { default as PolylineCustomEndpointMaterialProperty } from './property/polyline/PolylineCustomEndpointMaterialProperty'
 export { default as PolylineDirectionMaterialProperty } from './property/polyline/PolylineDirectionMaterialProperty'
 export { default as PolylineDashArrowMaterialProperty } from './property/polyline/PolylineDashArrowMaterialProperty'
+export { default as PolylineDashAAMaterialProperty } from './property/polyline/PolylineDashAAMaterialProperty'
 export { default as PolylineEmissionMaterialProperty } from './property/polyline/PolylineEmissionMaterialProperty'
 export { default as PolylineFenceMaterialProperty } from './property/polyline/PolylineFenceMaterialProperty'
 export { default as PolylineFlickerMaterialProperty } from './property/polyline/PolylineFlickerMaterialProperty'

@@ -10,6 +10,7 @@ import Parse from '../../parse/Parse'
 import { Transform } from '../../transform'
 import { Util } from '../../utils'
 import { MouseEventType } from '../../event'
+import PolylineDashAAMaterialProperty from '../../material/property/polyline/PolylineDashAAMaterialProperty'
 
 class TrajectoryLine extends Overlay {
   /**
@@ -194,7 +195,11 @@ class TrajectoryLine extends Overlay {
       return this._lineStyle.material
     }
     if (this._lineStyle.dash) {
-      return new Cesium.PolylineDashMaterialProperty({
+      /**
+       * 使用 DC 的抗锯齿虚线材质：Cesium 原生 `PolylineDash` 的端面是硬边，
+       * 且该锯齿位于折线四边形内部（MSAA 无法处理），详见材质 shader 内注释。
+       */
+      return new PolylineDashAAMaterialProperty({
         color: this._lineStyle.color,
         gapColor: Cesium.Color.TRANSPARENT,
         dashLength: this._lineStyle.dashLength,

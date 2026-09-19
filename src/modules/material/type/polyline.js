@@ -12,6 +12,7 @@ import LineTrailMaterial from '../shader/polyline/PolylineTrailMaterial.glsl'
 import LineFenceMaterial from '../shader/polyline/PolylineFenceMaterial.glsl'
 import LineMultiArrowMaterial from '../shader/polyline/PolylineMultiArrowMaterial.glsl'
 import LineDashArrowMaterial from '../shader/polyline/PolylineDashArrowMaterial.glsl'
+import LineDashAAMaterial from '../shader/polyline/PolylineDashAAMaterial.glsl'
 import LineDirectionMaterial from '../shader/polyline/PolylineDirectionMaterial.glsl'
 import LineCustomEndpointMaterial from '../shader/polyline/PolylineCustomEndpointMaterial.glsl'
 
@@ -270,3 +271,28 @@ Cesium.Material._materialCache.addMaterial(
     },
   }
 )
+
+/**
+ * PolylineDashAA —— 抗锯齿虚线
+ *
+ * 补齐 Cesium `PolylineDash` 材质缺失的端面抗锯齿（详见 shader 内注释）。
+ * 默认 uniform 与 Cesium 的 `PolylineDash` 保持一致（白线 + 透明间隙 + 16px 周期 + 255 掩码），
+ * 因此可以无缝替换。
+ * @type {string}
+ */
+Cesium.Material.PolylineDashAAType = 'PolylineDashAA'
+Cesium.Material._materialCache.addMaterial(Cesium.Material.PolylineDashAAType, {
+  fabric: {
+    type: Cesium.Material.PolylineDashAAType,
+    uniforms: {
+      color: Cesium.Color.WHITE,
+      gapColor: Cesium.Color.TRANSPARENT,
+      dashLength: 16.0,
+      dashPattern: 255.0,
+    },
+    source: LineDashAAMaterial,
+  },
+  translucent: function (material) {
+    return true
+  },
+})

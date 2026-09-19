@@ -6,6 +6,7 @@ import { Cesium } from '../../../libs'
 import DrawPolyline from '../draw/DrawPolyline'
 import EditPolyline from '../edit/EditPolyline'
 import MeasureBase from '../MeasureBase'
+import PolylineDashAAMaterialProperty from '../../material/property/polyline/PolylineDashAAMaterialProperty'
 
 class DistanceSurface extends MeasureBase {
   constructor() {
@@ -112,7 +113,7 @@ class DistanceSurface extends MeasureBase {
       material: options.material || Cesium.Color.YELLOW.withAlpha(0.6),
       depthFailMaterial:
         options.depthFailMaterial ||
-        new Cesium.PolylineDashMaterialProperty({
+        new PolylineDashAAMaterialProperty({
           color: Cesium.Color.YELLOW.withAlpha(0.6),
         }),
       width: options.width || 2,

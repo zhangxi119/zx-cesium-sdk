@@ -377,5 +377,72 @@ section('G5 · ContextMenu 事件处理器懒加载（运行时行为）')
   ok('销毁确实作用于原处理器', handler.isDestroyed() === true)
 }
 
+// ------------------------------------------------- AA 线体抗锯齿：Viewer 默认值
+section('AA · Viewer 线体抗锯齿默认值（静态校验）')
+{
+  const fs = await import('node:fs')
+  const viewerSrc = fs.readFileSync(
+    new URL('../src/modules/viewer/Viewer.js', import.meta.url),
+    'utf8'
+  )
+  const viewerCode = viewerSrc
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+
+  const defOpts = viewerCode.match(/const DEF_OPTS = \{[\s\S]*?\n\}/)
+  ok('定位到 DEF_OPTS', !!defOpts)
+  ok(
+    'DEF_OPTS 默认关闭 OIT（使半透明折线获得 MSAA）',
+    !!defOpts && /orderIndependentTranslucency:\s*false/.test(defOpts[0])
+  )
+  ok(
+    '画布 imageRendering 默认 auto（避免超采样被最近邻抵消）',
+    /DEF_CANVAS_IMAGE_RENDERING\s*=\s*'auto'/.test(viewerCode)
+  )
+  ok(
+    'imageRendering 被实际写入 canvas.style',
+    /canvas\.style\.imageRendering\s*=/.test(viewerCode)
+  )
+  ok(
+    'imageRendering 可由选项覆盖（不写死）',
+    /imageRendering:\s*imageRenderingOpt/.test(viewerCode)
+  )
+  ok(
+    'DC 自有选项不透传给 CesiumWidget（imageRendering 已剥离）',
+    /imageRendering:\s*imageRenderingOpt/.test(viewerCode) &&
+      !/\.\.\.cesiumOptions[\s\S]{0,40}imageRendering/.test(viewerCode)
+  )
+
+  // 折线材质 WebGL2 守卫修复
+  const arrowSrc = fs.readFileSync(
+    new URL(
+      '../src/modules/material/shader/polyline/PolylineDashArrowMaterial.glsl',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  ok(
+    'PolylineDashArrow 的导数守卫已兼容 WebGL2（__VERSION__ == 300）',
+    arrowSrc.includes('__VERSION__ == 300')
+  )
+  ok(
+    'PolylineDashArrow 不再使用仅 WebGL1 生效的 #ifdef 分支',
+    !/^#ifdef GL_OES_standard_derivatives\s*$\s*float base/m.test(arrowSrc)
+  )
+
+  // AA 虚线 shader 的守卫同样必须兼容 WebGL2
+  const aaSrc = fs.readFileSync(
+    new URL(
+      '../src/modules/material/shader/polyline/PolylineDashAAMaterial.glsl',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  ok(
+    'AA 虚线 shader 的导数守卫兼容 WebGL2',
+    aaSrc.includes('__VERSION__ == 300')
+  )
+}
+
 console.log(`\n================ 结果: ${pass} 通过 / ${fail} 失败 ================`)
 process.exit(fail === 0 ? 0 : 1)

@@ -2,6 +2,51 @@
 
 ### 1.0.8 - 2026-09-19
 
+#### 线体抗锯齿优化 🪄（针对「线体锯齿严重」）
+
+> 背景：Cesium 的折线着色器**没有任何解析式抗锯齿** ——
+> `PolylineFS.glsl` 直接输出材质色，`PolylineVS.glsl` 只做 `width + 0.5` 的半像素扩张。
+> 折线边缘的平滑**只能**依赖 MSAA / FXAA / 超采样。DC 原先在两处破坏了这条链路，
+> 且在虚线材质上完全没有抗锯齿。本次一并修复。
+
+- **`orderIndependentTranslucency` 默认关闭**（`Viewer` 的 `DEF_OPTS`）。
+  这是**最关键的一处**：Cesium 该选项默认为 `true`，开启时所有**半透明图元**
+  （虚线、发光折线、alpha < 1 的颜色）会被渲染进 OIT 自己的一组**单采样** framebuffer
+  （`OIT.js` 中四处 `FramebufferManager` 均未传采样数，颜色纹理亦按无采样创建），
+  因此 **`scene.msaaSamples` 对它们完全无效**。
+  关闭后半透明图元与不透明图元共用带 MSAA 的 `globeDepth` framebuffer
+  （`GlobeDepth.update` 会把 `numSamples` 传给出参 FBO，`Scene.resolveFramebuffers()`
+  在 `!useOIT` 时正是从该 FBO 取样），MSAA 全程生效；同时省掉 OIT 的多张 FBO 与合成 pass。
+  代价是半透明混合由「顺序无关」变为「按图元深度排序」——
+  对以线/面/圆/标注为主的 GIS 场景无可见影响；
+  确需顺序无关混合时传 `orderIndependentTranslucency: true` 恢复。
+
+- **画布 `image-rendering` 默认改为 `auto`**。
+  `CesiumWidget` 构造时会无条件写入 `FeatureDetection.imageRenderingValue()`，
+  在 Chrome / Firefox 下为 **`pixelated`**（最近邻）。当绘制缓冲区大于 CSS 尺寸时
+  （`resolutionScale > 1` 或 `useBrowserRecommendedResolution = false`），
+  浏览器以最近邻降采样，会**抵消超采样带来的抗锯齿收益**。
+  现由 `Viewer` 覆盖为 `auto`；需要还原时传 `imageRendering: 'pixelated'`。
+
+- **新增抗锯齿虚线材质 `PolylineDashAA`**，并**替换** `PolylineDashMaterialProperty` 导出。
+  Cesium 原生 `PolylineDash` 材质用 `fract` + `floor` 对 16 位掩码做**硬二值化**，
+  端面是硬边；关键是其锯齿位于折线四边形**内部**，
+  **MSAA 对此完全无效**（MSAA 只作用于三角形边缘），必须在着色器内做解析式平滑。
+  对照：Cesium 自身三个折线材质中，`PolylineGlow` 用连续衰减（天然平滑）、
+  `PolylineOutline` 调用了 `czm_antialias`（已抗锯齿），**唯独 `PolylineDash` 缺失**。
+  新实现用 `fwidth` 求屏幕空间掩码尺度，再以半个像素为间隔做 **3 点箱式滤波**得到
+  实线覆盖率，并按覆盖率混合。同时修正了「非预乘 alpha」下透明间隙稀释实线 RGB 的问题
+  （否则抗锯齿过渡带会发暗）。
+  - 新导出：`PolylineDashAAMaterialProperty`（同名实现）
+  - **`PolylineDashMaterialProperty` 现指向该实现**（继承自 Cesium 原类，
+    构造参数/取值/`instanceof` 完全等价）→ **既有调用方无需改动即获得平滑虚线**
+  - DC 自身的虚线用法（`TrajectoryLine`、6 个 `measure` 类型）已全部切换
+
+- **修复 `PolylineDashArrowMaterial` 在 WebGL2 下失效的导数守卫**。
+  原写法 `#ifdef GL_OES_standard_derivatives` 在 WebGL2（GLSL ES 3.00）下宏不定义，
+  会落入 `base = 0.975` 的降级分支，使箭头随线宽自适应的逻辑失效。
+  已改为与 Cesium 一致的 `#if (__VERSION__ == 300 || defined(GL_OES_standard_derivatives))`。
+
 #### 性能优化 ⚡（深度优化，详见 `DC_LIB_PERF_PLAN.md`）
 
 **渲染默认值**

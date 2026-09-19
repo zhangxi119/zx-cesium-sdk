@@ -20,12 +20,48 @@ import createWidgets from '../widget'
 import createTools from '../tools'
 import { BaseLayerPicker } from '../exts'
 
+/**
+ * Viewer 默认选项
+ *
+ * `orderIndependentTranslucency: false` —— **线体抗锯齿的关键默认值**
+ *
+ * Cesium 该选项默认为 `true`。开启时，所有**半透明图元**会被渲染进
+ * `OIT` 自己的一组单采样 framebuffer（`OIT.js` 中四个 `FramebufferManager`
+ * 均未传入采样数，颜色纹理也按无采样创建），因此 **`scene.msaaSamples` 对它们完全无效**。
+ * 对照 `GlobeDepth` 会把 `numSamples` 传给出参 framebuffer（`GlobeDepth.update` → `_outputFramebuffer.update(..., numSamples, ...)`），
+ * 并且 `Scene.resolveFramebuffers()` 在 `!useOIT` 时正是从该 multisample FBO 取样做后处理。
+ *
+ * 而 Cesium 的折线着色器**没有任何解析式抗锯齿**
+ * （`PolylineFS.glsl` 直接输出材质色；`PolylineVS.glsl` 仅做 `width + 0.5` 的半像素扩张），
+ * 折线边缘只能依赖 MSAA。于是「OIT 开启」⇒ **虚线/发光/带透明度颜色的折线全部失去抗锯齿**，
+ * 这正是线体锯齿的主要来源。
+ *
+ * 因此 DC 默认关闭 OIT，让半透明图元与不透明图元共用带 MSAA 的 framebuffer。
+ * 代价是半透明图元按图元级深度排序混合（不再顺序无关）——
+ * 对以线、面、圆、标注为主的 GIS 叠加场景无可见影响；
+ * 若场景确实依赖顺序无关的半透明混合（如体积/云层叠加），显式传入
+ * `orderIndependentTranslucency: true` 即可恢复 Cesium 行为。
+ */
 const DEF_OPTS = {
   creditContainer: document.createElement('div'),
   creditViewport: document.createElement('div'),
   baseLayer: false,
   shouldAnimate: true,
+  orderIndependentTranslucency: false,
 }
+
+/**
+ * 画布 `image-rendering` 的 DC 默认值
+ *
+ * `CesiumWidget` 构造时会无条件执行
+ * `canvas.style.imageRendering = FeatureDetection.imageRenderingValue()`，
+ * 在 Chrome / Firefox 下该值为 **`pixelated`**（最近邻）。
+ * 当渲染分辨率高于 CSS 尺寸时（`resolutionScale > 1`、或
+ * `useBrowserRecommendedResolution = false` 走设备像素比），
+ * 浏览器便以**最近邻**降采样，使超采样带来的抗锯齿收益被抵消、边缘反而更硬。
+ * 置为 `auto` 让浏览器使用平滑重采样。需要还原 Cesium 行为时传 `imageRendering: 'pixelated'`。
+ */
+const DEF_CANVAS_IMAGE_RENDERING = 'auto'
 
 class Viewer {
   constructor(container, options = {}) {
@@ -54,7 +90,12 @@ class Viewer {
     /**
      * DC 自有选项不应透传给 CesiumWidget（虽无副作用，但保持参数边界清晰）
      */
-    const { widgets: _widgetOpt, tools: _toolOpt, ...cesiumOptions } = options
+    const {
+      widgets: _widgetOpt,
+      tools: _toolOpt,
+      imageRendering: imageRenderingOpt,
+      ...cesiumOptions
+    } = options
     this._delegate =
       typeof container !== 'string'
         ? container
@@ -63,6 +104,20 @@ class Viewer {
             ...cesiumOptions,
           }) // Initialize the viewer
     this._delegate.canvas.parentNode.className = 'viewer-canvas' //re-name the default class
+
+    /**
+     * 覆盖 CesiumWidget 写入的 `image-rendering`（详见 DEF_CANVAS_IMAGE_RENDERING 注释）
+     * 仅对字符串入参（由 DC 创建 canvas）生效；外部传入既有 widget 时不动它的画布样式。
+     */
+    if (typeof container === 'string') {
+      const canvas = this._delegate.canvas
+      if (canvas && canvas.style) {
+        canvas.style.imageRendering =
+          imageRenderingOpt === undefined
+            ? DEF_CANVAS_IMAGE_RENDERING
+            : imageRenderingOpt
+      }
+    }
 
     /**
      *  Registers events
