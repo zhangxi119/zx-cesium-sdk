@@ -50,10 +50,19 @@ class TrajectoryLine extends Overlay {
 
     this._delegate = new Cesium.Entity({
       polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          this._ensureCartesianCache()
-          return this._cachedCartesianPositions
-        }, false),
+        /**
+         * 【性能关键修正】positions 改为**恒定数组**（原为非恒定 CallbackProperty）
+         *
+         * 旧实现即使内部已有 `_cachedCartesianPositions` 缓存，由于 `isConstant === false`，
+         * Cesium 仍会把该实体判定为**动态几何**，于是
+         * `DynamicGeometryUpdater.update()` **每帧**执行
+         * `primitives.removeAndDestroy(...)` + `primitives.add(new Primitive(...))`
+         * —— 即每帧销毁并重建 GPU 顶点缓冲，缓存形同虚设。
+         *
+         * 现改为普通数组（Cesium 包装为 ConstantProperty），仅在坐标变更时通过
+         * `_flushGeometry()` 重新赋值，几何随之构建一次。
+         */
+        positions: Transform.transformWGS84ArrayToCartesianArray(this._positions),
         width: this._lineStyle.width,
         material: this._createLineMaterial(),
         clampToGround: this._lineStyle.clampToGround,
@@ -70,7 +79,7 @@ class TrajectoryLine extends Overlay {
 
   /**
    * 全量替换坐标数组，内部做 diff：新增的点位追加 entity，减少的点位移除 entity
-   * 数量不变时仅更新坐标值（通过 CallbackProperty 自动响应）
+   * 数量不变时仅更新坐标值（通过 `_flushGeometry()` 同步到恒定属性）
    * @param positions {Position[]|string} 新坐标数组
    */
   set positions(positions) {
@@ -80,10 +89,15 @@ class TrajectoryLine extends Overlay {
     this._positions = newPositions
     this._markPositionsDirty()
     if (!this._showPoints || !this._layer) {
+      this._flushGeometry()
       return
     }
     if (newLen > oldLen) {
       let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+      /**
+       * 先确保 Cartesian 缓存有效，新增 entity 才能拿到正确的 position
+       */
+      this._ensureCartesianCache()
       for (let i = oldLen; i < newLen; i++) {
         this._addPointEntity(i, glowImage)
       }
@@ -92,6 +106,10 @@ class TrajectoryLine extends Overlay {
         this._removePointEntity(i)
       }
     }
+    /**
+     * 统一次性同步线几何与全部分点（点位增删会改变所有点的渐变尺寸）
+     */
+    this._flushGeometry()
   }
 
   /** 获取当前坐标数组 */
@@ -112,6 +130,7 @@ class TrajectoryLine extends Overlay {
       this._markPositionsDirty()
       if (this._showPoints && this._layer) {
         let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+        this._ensureCartesianCache()
         this._addPointEntity(this._positions.length - 1, glowImage)
       }
     } else {
@@ -119,9 +138,11 @@ class TrajectoryLine extends Overlay {
       this._markPositionsDirty()
       if (this._showPoints && this._layer) {
         let glowImage = this._createGlowImage(this._pointStyle.pointColor)
+        this._ensureCartesianCache()
         this._addPointEntity(index, glowImage)
       }
     }
+    this._flushGeometry()
     return this
   }
 
@@ -139,6 +160,7 @@ class TrajectoryLine extends Overlay {
     if (this._pointEntities.length > index) {
       this._removePointEntity(index)
     }
+    this._flushGeometry()
     return this
   }
 
@@ -282,15 +304,28 @@ class TrajectoryLine extends Overlay {
     if (this._pointEntities.length > 0) {
       return
     }
+    /**
+     * 先确保 Cartesian 缓存有效，否则新建 entity 拿不到初始位置
+     */
+    this._ensureCartesianCache()
     let glowImage = this._createGlowImage(this._pointStyle.pointColor)
     for (let i = 0; i < this._positions.length; i++) {
       this._addPointEntity(i, glowImage)
     }
+    /**
+     * 统一刷新恒定尺寸（渐变尺寸依赖总点数）
+     */
+    this._syncPointEntities()
   }
 
   /**
    * 在指定索引处添加单个 billboard entity
-   * position/width/height 均使用 CallbackProperty，坐标变更时自动响应
+   *
+   * 【性能关键修正】position / width / height 改为**恒定属性**。
+   * 旧实现为每个分点创建 3 个非恒定 `CallbackProperty`：
+   * 一条 600 点的轨迹即产生 1800 个「每帧求值」的属性，
+   * 且 billboard 会被 Cesium 归入动态路径逐帧更新。
+   * 现改为普通值，由 `_syncPointEntities()` 在数据变更时统一赋值。
    * @param index {number} 索引位置
    * @param glowImage {string?} 发光图片 data url，为空时自动生成
    * @returns {Cesium.Entity|null}
@@ -303,29 +338,15 @@ class TrajectoryLine extends Overlay {
     if (!glowImage) {
       glowImage = this._createGlowImage(this._pointStyle.pointColor)
     }
-    let self = this
-    let entity = this._layer.delegate.entities.add({
-      position: new Cesium.CallbackProperty(() => {
-        if (entity._trajIndex === undefined) {
-          return undefined
-        }
-        self._ensureCartesianCache()
-        return self._cachedCartesianPositions[entity._trajIndex]
-      }, false),
+    const size = this._getPointSize(index)
+    const entity = this._layer.delegate.entities.add({
+      position: this._cachedCartesianPositions
+        ? this._cachedCartesianPositions[index]
+        : undefined,
       billboard: {
         image: glowImage,
-        width: new Cesium.CallbackProperty(() => {
-          if (entity._trajIndex === undefined) {
-            return 0
-          }
-          return self._getPointSize(entity._trajIndex)
-        }, false),
-        height: new Cesium.CallbackProperty(() => {
-          if (entity._trajIndex === undefined) {
-            return 0
-          }
-          return self._getPointSize(entity._trajIndex)
-        }, false),
+        width: size,
+        height: size,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     })
@@ -384,12 +405,60 @@ class TrajectoryLine extends Overlay {
   }
 
   /**
+   * 把坐标变更同步到几何（线 + 分点）
+   *
+   * 取代原先「依赖非恒定 CallbackProperty 自动响应」的机制：
+   * 现在位置与尺寸都是**恒定属性**，必须在数据变更后显式赋值一次，
+   * 从而把「每帧重建」降为「每次数据变更重建一次」。
+   * @private
+   */
+  _flushGeometry() {
+    this._ensureCartesianCache()
+    /**
+     * 线：必须是新的外层数组，赋值才会触发几何重建
+     */
+    if (this._delegate?.polyline) {
+      this._delegate.polyline.positions =
+        Transform.transformWGS84ArrayToCartesianArray(this._positions)
+    }
+    this._syncPointEntities()
+  }
+
+  /**
+   * 同步所有分点 entity 的恒定位置与尺寸
+   *
+   * 说明：点尺寸由 `_getPointSize(index)` 依据「索引 / 总点数」的渐变比例计算，
+   * 因此**任一点增删都会影响全部点的大小**，需整体同步。
+   * @private
+   */
+  _syncPointEntities() {
+    const count = this._pointEntities.length
+    if (count === 0) {
+      return
+    }
+    const cartesians = this._cachedCartesianPositions
+    for (let i = 0; i < count; i++) {
+      const entity = this._pointEntities[i]
+      const cartesian = cartesians ? cartesians[i] : undefined
+      if (cartesian) {
+        entity.position = cartesian
+      }
+      const size = this._getPointSize(i)
+      if (entity.billboard) {
+        entity.billboard.width = size
+        entity.billboard.height = size
+      }
+    }
+  }
+
+  /**
    * 重建所有分点 entity（先移除再创建）
    * @private
    */
   _recreatePoints() {
     this._removePoints()
     this._createPoints()
+    this._flushGeometry()
   }
 
   /**
@@ -521,6 +590,10 @@ class TrajectoryLine extends Overlay {
    */
   _mountedHook() {
     this._createPoints()
+    /**
+     * 挂载后统一同步一次恒定几何（分点 entity 创建时可能尚未拿到 Cartesian 缓存）
+     */
+    this._flushGeometry()
     this.on(MouseEventType.MOUSE_OVER, this._onMouseOver, this)
     this.on(MouseEventType.MOUSE_OUT, this._onMouseOut, this)
     this.on(MouseEventType.CLICK, this._onClick, this)
@@ -584,7 +657,8 @@ class TrajectoryLine extends Overlay {
   /**
    * 设置点位样式
    * 仅更新颜色或发光模式时直接替换 billboard 图片，不重建 entity；
-   * 更新 pointSize / pointGradient / pointGradientDirection 时通过 CallbackProperty 自动响应
+   * 更新 pointSize / pointGradient / pointGradientDirection 时通过 `_syncPointEntities()`
+   * 统一刷新恒定尺寸属性（原先依赖 CallbackProperty 逐帧求值）
    * @param style {Object} 点样式配置
    * @returns {TrajectoryLine}
    */
@@ -603,6 +677,16 @@ class TrajectoryLine extends Overlay {
       this._pointEntities.forEach((e) => {
         e.billboard.image = image
       })
+    }
+    /**
+     * 尺寸/渐变相关配置变化时刷新全部分点的恒定尺寸
+     */
+    if (
+      style.pointSize !== undefined ||
+      style.pointGradient !== undefined ||
+      style.pointGradientDirection !== undefined
+    ) {
+      this._syncPointEntities()
     }
     return this
   }

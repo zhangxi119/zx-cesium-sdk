@@ -88,25 +88,28 @@ class CustomLabel extends Overlay {
 
   /**
    * Sets bottom circle
+   *
+   * 【性能修正】与 `CustomBillboard.setBottomCircle` 一致：
+   * `rotateAmount` 为 0 时使用常量（保持静态几何）；需要旋转时基于**时间**计算，
+   * 避免「每帧重建几何」与「转速随帧率变化」两个问题。
    * @param radius
    * @param style
-   * @param rotateAmount
+   * @param rotateAmount 旋转角速度（度/秒，0 表示不旋转）
    * @returns {CustomLabel}
    */
   setBottomCircle(radius, style = {}, rotateAmount = 0) {
-    let stRotation = 0
-    let amount = rotateAmount
+    const amount = +rotateAmount || 0
     this._delegate.ellipse = {
       ...style,
       semiMajorAxis: radius,
       semiMinorAxis: radius,
-      stRotation: new Cesium.CallbackProperty(() => {
-        stRotation += amount
-        if (stRotation >= 360 || stRotation <= -360) {
-          stRotation = 0
-        }
-        return stRotation
-      }, false),
+      stRotation:
+        amount === 0
+          ? 0
+          : new Cesium.CallbackProperty((time) => {
+              const seconds = Util.getElapsedSeconds(time)
+              return Cesium.Math.toRadians((seconds * amount) % 360)
+            }, false),
     }
     return this
   }

@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 19:00:00
  */
 
 import { Cesium } from '../../../libs'
@@ -10,6 +12,11 @@ import { Util } from '../../utils'
 import { Transform } from '../../transform'
 import Polyline from './Polyline'
 
+/**
+ * 描边圆周的分段数（决定描边平滑度）
+ */
+const OUTLINE_SEGMENTS = 720
+
 class Circle extends Overlay {
   constructor(center, radius) {
     super()
@@ -18,6 +25,8 @@ class Circle extends Overlay {
     this._radius = +radius || 0
     this._rotateAmount = 0
     this._stRotation = 0
+    /** 是否已安装旋转回调（仅在 rotateAmount !== 0 时为真，避免动态几何） */
+    this._stRotationCallback = undefined
     this._outline = false
     this._outlineColor = Cesium.Color.RED
     this._outlineWidth = 1
@@ -50,15 +59,53 @@ class Circle extends Overlay {
     return this._radius
   }
 
+  /**
+   * 设置旋转量（度/秒）
+   *
+   * 【性能关键修正】旧实现无条件安装一个非恒定 `CallbackProperty` 到 `ellipse.stRotation`：
+   * ```js
+   * this._delegate.ellipse.stRotation = new Cesium.CallbackProperty(() => {
+   *   this._stRotation += this._rotateAmount      // ① 按**帧**累加
+   *   ...
+   * }, false)                                      // ② isConstant=false → 动态几何
+   * ```
+   * 带来两个问题：
+   *  1. `stRotation` 动态化 → **椭圆几何每帧销毁重建**（与 Polyline 同类问题）；
+   *  2. 旋转量按帧累加而非按时间 → **转速随帧率变化**，帧率越低转得越慢（物理上不正确）。
+   *
+   * 现改为：
+   *  - `rotateAmount` 为 0（默认，覆盖绝大多数用法）时**完全不安装回调**，几何保持静态；
+   *  - 需要旋转时，改用**基于时间**的计算（`JulianDate.secondsOfDay`），保证角速度恒定；
+   *  - 显式关闭旋转（设为 0）时移除回调，恢复静态几何。
+   */
   set rotateAmount(amount) {
     this._rotateAmount = +amount
-    this._delegate.ellipse.stRotation = new Cesium.CallbackProperty(() => {
-      this._stRotation += this._rotateAmount
-      if (this._stRotation >= 360 || this._stRotation <= -360) {
-        this._stRotation = 0
-      }
-      return Cesium.Math.toRadians(this._stRotation)
-    }, false)
+    if (!this._delegate || !this._delegate.ellipse) {
+      return
+    }
+    if (this._rotateAmount === 0) {
+      /**
+       * 关闭旋转：移除回调，恢复静态几何（避免继续每帧重建）
+       */
+      this._delegate.ellipse.stRotation = 0
+      this._stRotationCallback = undefined
+      return
+    }
+    if (this._stRotationCallback) {
+      return
+    }
+    /**
+     * 基于时间（秒 → 度）计算旋转角，与帧率解耦
+     * 注意：Cesium 无静态 `JulianDate.secondsOfDay`，统一走 `Util.getElapsedSeconds`
+     */
+    this._stRotationCallback = true
+    this._delegate.ellipse.stRotation = new Cesium.CallbackProperty(
+      (time) => {
+        const seconds = Util.getElapsedSeconds(time)
+        return Cesium.Math.toRadians((seconds * this._rotateAmount) % 360)
+      },
+      false
+    )
   }
 
   get rotateAmount() {
@@ -114,7 +161,7 @@ class Circle extends Overlay {
     return Transform.generateCirclePositions(
       this._center,
       this._radius,
-      720,
+      OUTLINE_SEGMENTS,
       this._center.alt || 0
     )
   }

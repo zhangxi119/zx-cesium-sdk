@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 18:50:00
  */
 
 import { Cesium } from '../../../libs'
@@ -14,13 +16,30 @@ class Polyline extends Overlay {
   constructor(positions) {
     super()
     this._positions = Parse.parsePositions(positions)
+    /**
+     * 【性能关键修正】positions 改为**恒定数组**（不再使用非恒定 CallbackProperty）
+     *
+     * 旧实现把 positions 写成 `new Cesium.CallbackProperty(fn, false)`，
+     * `isConstant === false` 会让 Cesium 把这条线判定为**动态几何**，于是
+     * `DynamicGeometryUpdater.prototype.update()` **每帧**都会执行：
+     * ```js
+     * primitives.removeAndDestroy(this._primitive);          // 销毁 Primitive 及其 GPU 顶点缓冲
+     * appearance = new MaterialAppearance({ ... });           // 每帧新建 Appearance
+     * this._primitive = primitives.add(new Primitive({...})); // 每帧新建 Primitive 并重新上传几何
+     * ```
+     * 代价按「线数 × 点数 × 帧率」放大：一条 721 点的圆周描边每秒就要重建 60 次 GPU 缓冲，
+     * 是三维稳态帧率的主要瓶颈。
+     *
+     * 改为普通数组后，Cesium 会将其包装为 `ConstantProperty`，
+     * **几何只在 positions 被赋值时构建一次**；数据变化时通过下方的 setter 重新赋值即可。
+     */
     this._delegate = new Cesium.Entity({
       polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          return Transform.transformWGS84ArrayToCartesianArray(this._positions)
-        }, false),
+        positions: Transform.transformWGS84ArrayToCartesianArray(this._positions),
       },
     })
+    /** 最近一次同步到实体的点位数组引用（用于避免挂载时重复构建几何） */
+    this._syncedPositions = this._positions
     this._state = State.INITIALIZED
   }
 
@@ -30,10 +49,28 @@ class Polyline extends Overlay {
 
   set positions(positions) {
     this._positions = Parse.parsePositions(positions)
+    this._syncPositions()
   }
 
   get positions() {
     return this._positions
+  }
+
+  /**
+   * 把当前 WGS84 点位同步到实体上的恒定属性
+   *
+   * 说明：`PolylineGraphics.positions` 每次**赋值**都会触发 `definitionChanged`，
+   * 进而让 Cesium 重建一次几何 —— 这是期望行为（低频、仅在数据变化时发生）。
+   * 注意必须是**新的外层数组**：复用同一数组实例不会触发变更通知。
+   * @private
+   */
+  _syncPositions() {
+    if (!this._delegate || !this._delegate.polyline) {
+      return
+    }
+    this._syncedPositions = this._positions
+    this._delegate.polyline.positions =
+      Transform.transformWGS84ArrayToCartesianArray(this._positions)
   }
 
   get center() {
@@ -46,9 +83,12 @@ class Polyline extends Overlay {
 
   _mountedHook() {
     /**
-     *  initialize the Overlay parameter
+     * 构造期已把 positions 同步到实体；此处仅在点位数组被**外部直接替换**
+     * （例如子类自行改写 `_positions`）时才需要重新同步，避免挂载时多构建一次几何。
      */
-    this.positions = this._positions
+    if (this._syncedPositions !== this._positions) {
+      this._syncPositions()
+    }
   }
 
   /**

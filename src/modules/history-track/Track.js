@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 19:30:00
  */
 
 import { Cesium } from '../../libs'
@@ -47,9 +49,19 @@ class Track {
     this._path = new Cesium.Entity({
       show: false,
       polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          return this._pathPositions
-        }, false),
+        /**
+         * 【性能关键修正】轨迹路径的 positions 改为**恒定数组**
+         *
+         * 旧实现为 `new Cesium.CallbackProperty(() => this._pathPositions, false)`：
+         *  - `isConstant === false` → Cesium 每帧销毁并重建该折线的 Primitive
+         *    （`DynamicGeometryUpdater.update()` 内的 `removeAndDestroy` + `add(new Primitive)`）；
+         *  - 更严重的是：**回放结束后 `_pathPositions` 已不再变化，几何仍在每帧重建**，
+         *    形成持续到组件销毁为止的无谓开销。
+         *
+         * 现改为普通数组，仅在真正追加点（`_onPostRender`）或重置时重新赋值，
+         * 把「每帧重建」降为「每个新增点重建一次」。
+         */
+        positions: [],
       },
     })
     this._positionIndex = 0
@@ -185,6 +197,12 @@ class Track {
         return false
       }
       this._pathPositions.push(p)
+      /**
+       * 追加点后同步到恒定属性（必须赋新数组，复用同一实例不会触发几何重建）
+       */
+      if (this._path?.polyline) {
+        this._path.polyline.positions = this._pathPositions.slice()
+      }
       if (this._options.clampToTileset) {
         this._delegate.position = viewer.scene.clampToHeight(p, [
           this._delegate,
@@ -322,6 +340,12 @@ class Track {
         )
       })
       this._pathPositions = []
+      /**
+       * 同步清空恒定属性，避免残留上一轮轨迹
+       */
+      if (this._path?.polyline) {
+        this._path.polyline.positions = []
+      }
       this._positionIndex = 0
     } else if (params?.stopTime && params?.duration) {
       this._duration += params.duration

@@ -117,26 +117,48 @@ class CustomBillboard extends Overlay {
   }
 
   /**
+   * 设置底部圆环
+   *
+   * 【性能修正】`rotateAmount` 为 0（默认）时不再安装非恒定回调。
+   * 旧实现无条件写入 `stRotation: new Cesium.CallbackProperty(fn, false)`，
+   * 使椭圆被判定为**动态几何**（每帧销毁重建 Primitive）；且其旋转量按**帧**累加，
+   * 转速会随帧率变化。现改为：静态场景用常量 0；需要旋转时基于**时间**计算角速度。
    * @param {*} radius
    * @param {*} style
-   * @param {*} rotateAmount
+   * @param {*} rotateAmount 旋转角速度（度/秒，0 表示不旋转）
    */
   setBottomCircle(radius, style = {}, rotateAmount = 0) {
-    let stRotation = 0
-    let amount = rotateAmount
     this._delegate.ellipse = {
       ...style,
       semiMajorAxis: radius,
       semiMinorAxis: radius,
-      stRotation: new Cesium.CallbackProperty(() => {
-        stRotation += amount
-        if (stRotation >= 360 || stRotation <= -360) {
-          stRotation = 0
-        }
-        return stRotation
-      }, false),
+      stRotation: this._createStRotation(rotateAmount),
     }
     return this
+  }
+
+  /**
+   * 构造 stRotation 属性值
+   * @param {number} rotateAmount 旋转角速度（度/秒）
+   * @returns {number|Cesium.CallbackProperty}
+   * @private
+   */
+  _createStRotation(rotateAmount) {
+    const amount = +rotateAmount || 0
+    if (amount === 0) {
+      /**
+       * 不旋转：使用常量值，保持几何静态（零逐帧开销）
+       */
+      return 0
+    }
+    /**
+     * 旋转：基于时间（秒 → 度）计算，与帧率解耦
+     * 注意：Cesium 无静态 `JulianDate.secondsOfDay`，统一走 `Util.getElapsedSeconds`
+     */
+    return new Cesium.CallbackProperty((time) => {
+      const seconds = Util.getElapsedSeconds(time)
+      return Cesium.Math.toRadians((seconds * amount) % 360)
+    }, false)
   }
 }
 

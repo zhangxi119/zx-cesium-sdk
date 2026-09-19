@@ -1,5 +1,7 @@
 /**
  * @Author : Caven Chen
+ * @Last Modified By : zhangxi119
+ * @Last Modified Time : 2026-09-19 19:20:00
  */
 
 import { Cesium } from '../../../libs'
@@ -29,13 +31,11 @@ class Model extends Overlay {
       this._position
     )
     if (this._rotateAmount === 0) {
-      this._delegate.orientation = Cesium.Transforms.headingPitchRollQuaternion(
-        Transform.transformWGS84ToCartesian(this._position),
-        new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(this._position.heading),
-          Cesium.Math.toRadians(this._position.pitch),
-          Cesium.Math.toRadians(this._position.roll)
-        )
+      /**
+       * 朝向改为静态：仅在位置变化时重算一次（不再逐帧求值）
+       */
+      this._delegate.orientation = this._computeOrientation(
+        this._position.heading
       )
     }
   }
@@ -53,22 +53,48 @@ class Model extends Overlay {
     return this._modelUrl
   }
 
+  /**
+   * 设置自转速度（度/秒）
+   *
+   * 【性能修正】`rotateAmount` 为 0（默认）时**移除回调**，恢复静态朝向（零逐帧开销）。
+   * 旧实现无条件安装非恒定 `CallbackProperty` 到 `orientation`：
+   *  1. 使模型朝向被判定为动态属性，每帧重新求值并更新模型矩阵；
+   *  2. 旋转量按**帧**累加（`this._position.heading += amount`），转速随帧率变化，
+   *     并且会**副作用式地改写 `_position.heading`**（污染业务坐标数据）。
+   * 现改为基于**时间**计算，且不改写 `_position`。
+   */
   set rotateAmount(amount) {
     this._rotateAmount = +amount
-    this._delegate.orientation = new Cesium.CallbackProperty(() => {
-      this._position.heading += this._rotateAmount
-      if (this._position.heading >= 360 || this._position.heading <= -360) {
-        this._position.heading = 0
-      }
-      return Cesium.Transforms.headingPitchRollQuaternion(
-        Transform.transformWGS84ToCartesian(this._position),
-        new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(this._position.heading),
-          Cesium.Math.toRadians(this._position.pitch),
-          Cesium.Math.toRadians(this._position.roll)
-        )
+    if (this._rotateAmount === 0) {
+      this._delegate.orientation = this._computeOrientation(
+        this._position.heading
+      )
+      return
+    }
+    const baseHeading = this._position.heading || 0
+    this._delegate.orientation = new Cesium.CallbackProperty((time) => {
+      const seconds = Util.getElapsedSeconds(time)
+      return this._computeOrientation(
+        baseHeading + ((seconds * this._rotateAmount) % 360)
       )
     }, false)
+  }
+
+  /**
+   * 按给定航向计算朝向四元数（不修改 `_position`）
+   * @param heading 航向角（度）
+   * @returns {Cesium.Quaternion}
+   * @private
+   */
+  _computeOrientation(heading) {
+    return Cesium.Transforms.headingPitchRollQuaternion(
+      Transform.transformWGS84ToCartesian(this._position),
+      new Cesium.HeadingPitchRoll(
+        Cesium.Math.toRadians(heading),
+        Cesium.Math.toRadians(this._position.pitch),
+        Cesium.Math.toRadians(this._position.roll)
+      )
+    )
   }
 
   get rotateAmount() {
