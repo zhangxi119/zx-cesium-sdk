@@ -23,7 +23,7 @@
     "build:node": "rimraf dist && gulp buildNode",
     "build:iife": "rimraf dist && gulp buildIIFE",
     "build:release": "rimraf dist && gulp buildRelease",
-    "verify:perf": "node --import ./test/register.mjs test/perf-verify.mjs && node --import ./test/register.mjs test/perf-core-verify.mjs",
+    "verify:perf": "node --import ./verify/register.mjs verify/perf-verify.mjs && node --import ./verify/register.mjs verify/perf-core-verify.mjs",
     "prepublishOnly": "yarn run build:release",
     "server": "gulp server",
     "docs:dev": "vitepress dev docs",
