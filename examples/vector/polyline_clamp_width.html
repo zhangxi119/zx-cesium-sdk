@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>dc-example</title>
+    <script src="/libs/dc-sdk/dc.min.js"></script>
+    <link href="/libs/dc-sdk/dc.min.css" type="text/css" rel="stylesheet" />
+    <link href="../index.css" type="text/css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="viewer-container" class="viewer-container"></div>
+    <script>
+      DC.config.baseUrl = '../libs/dc-sdk/resources/'
+      let viewer = new DC.Viewer('viewer-container')
+      let baseLayer = DC.ImageryLayerFactory.createImageryLayer(
+        DC.ImageryType.AMAP,
+        {
+          style: 'img',
+          crs: 'WGS84'
+        }
+      )
+      viewer.addBaseLayer(baseLayer, {
+        brightness: 0.1
+      })
+
+      let layer = new DC.VectorLayer('layer')
+      viewer.addLayer(layer)
+
+      /**
+       * 线宽语义保护（opt-in）
+       *
+       * 每行同时给出「不钳制」与「clampLineWidth: true」两种写法的结果，
+       * 便于直接在屏幕上对照：
+       *  - `width < 1`：Cesium `PolylineVS` 中是 `if (width < 1.0) { show = 0.0; }` → **整条线不绘制**；
+       *  - `width` 过大：生成极宽四边形，既遮挡地图又按面积消耗填充率。
+       *
+       * 默认（不传开关）**完全不干预**，与既有版本行为一致。
+       */
+      const cases = [
+        { lat: 40, width: 0.5, clamp: false, color: DC.Color.RED },
+        { lat: 35, width: 0.5, clamp: true, color: DC.Color.LIME },
+        { lat: 30, width: 100, clamp: false, color: DC.Color.ORANGE },
+        { lat: 25, width: 100, clamp: true, color: DC.Color.CYAN },
+        { lat: 20, width: 3.5, clamp: true, color: DC.Color.YELLOW },
+        {
+          lat: 15,
+          width: 0.5,
+          clamp: true,
+          strict: true,
+          color: DC.Color.MAGENTA
+        }
+      ]
+
+      const rows = cases.map((item) => {
+        let polyline = new DC.Polyline(`-75, ${item.lat}; -45, ${item.lat}`)
+        polyline.setStyle({
+          width: item.width,
+          // 开关：仅 `=== true` 时生效；`strictLineWidth: true` 优先级更高（逃生舱）
+          clampLineWidth: item.clamp,
+          strictLineWidth: item.strict === true,
+          material: item.color,
+          // 公里级对照线：跳过大地线加密
+          arcType: 0
+        })
+        layer.addOverlay(polyline)
+        // 回读实体上的**真实**线宽（Property 包装，需要 getValue）
+        const applied = polyline.delegate.polyline.width.getValue(
+          DC.JulianDate.now()
+        )
+        const switches = [
+          item.clamp ? 'clampLineWidth' : '',
+          item.strict ? 'strictLineWidth' : ''
+        ]
+          .filter(Boolean)
+          .join(' + ')
+        return (
+          `写入 width=${item.width}　开关=${switches || '（无）'}` +
+          `　→ 实体实际 width=${applied}` +
+          (applied < 1 ? '　← 整条不绘制' : '')
+        )
+      })
+
+      const panel = document.createElement('div')
+      panel.style.cssText =
+        'position:absolute;left:12px;top:12px;z-index:9;padding:10px 14px;' +
+        'background:rgba(8,18,24,.85);color:#cfe;border:1px solid #2a7;border-radius:6px;' +
+        'font:12px/1.9 Consolas,"Courier New",monospace;white-space:pre'
+      panel.textContent = [
+        '线宽语义保护（opt-in）—— 自上而下 6 条线',
+        ...rows
+      ].join('\n')
+      document.body.appendChild(panel)
+
+      viewer.flyTo(layer)
+    </script>
+  </body>
+</html>

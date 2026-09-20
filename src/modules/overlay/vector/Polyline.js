@@ -1,7 +1,7 @@
 /**
  * @Author : Caven Chen
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 18:50:00
+ * @Last Modified Time : 2026-09-20 15:45:00
  */
 
 import { Cesium } from '../../../libs'
@@ -108,6 +108,23 @@ class Polyline extends Overlay {
 
   /**
    * Sets style
+   *
+   * ## 线宽语义保护（opt-in，**默认不干预**）
+   * 业务线宽多来自后端配置或表单，越界时 Cesium 的反应是**静默异常**：
+   * `width < 1` 会让整条线不绘制（`PolylineVS`：`if (width < 1.0) { show = 0.0; }`），
+   * 过大的宽度则生成极宽四边形、遮挡地图并消耗填充率。
+   *
+   * 通过 `clampLineWidth` 即可让本方法把宽度规整到 `[1, 12]`（CSS 像素）：
+   * ```js
+   * polyline.setStyle({ width: 0.5, clampLineWidth: true })   // → 1
+   * polyline.setStyle({ width: 100, clampLineWidth: true })   // → 12
+   * ```
+   *
+   * 三个语义要点：
+   * 1. **默认关闭**：不传开关时完全按调用方给的值写入，与既有版本逐字节一致；
+   * 2. **`strictLineWidth: true` 优先级更高**：用于个别确实需要越界线宽的图元（逃生舱）；
+   * 3. **两个开关都会被消费掉**：不会透传成实体上的无用属性（Cesium 图形对象只认自己的字段）。
+   *
    * @param style
    * @returns {Polyline}
    */
@@ -116,6 +133,14 @@ class Polyline extends Overlay {
       return this
     }
     delete style['positions']
+    // 线宽语义保护开关：仅在显式开启且未被严格模式否决时生效
+    const clampWidth =
+      style['clampLineWidth'] === true && style['strictLineWidth'] !== true
+    delete style['clampLineWidth']
+    delete style['strictLineWidth']
+    if (clampWidth && style['width'] != null) {
+      style['width'] = Util.clampLineWidth(style['width'])
+    }
     Util.merge(this._style, style)
     Util.merge(this._delegate.polyline, style)
     return this

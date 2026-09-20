@@ -429,6 +429,190 @@ class Viewer {
   }
 
   /**
+   * 读取**真实生效**的性能/画质参数快照
+   *
+   * 与 `_options`（期望值）不同，本方法直接读取 Cesium 原生对象上的值，
+   * 因此可用于验证「渲染档位 / 抗锯齿 / 大气层是否真的生效」；
+   * 业务侧的性能诊断面板可直接消费，无需再访问 `viewer.delegate.scene`
+   * （DC 不导出 Cesium 命名空间，业务代码直接触碰原生对象既脆弱又重复）。
+   *
+   * 字段说明：
+   * - `resolutionScale` / `useBrowserRecommendedResolution` / `targetFrameRate`：分辨率与帧率策略；
+   * - `msaaSamples` / `fxaa` / `sunBloom` / `orderIndependentTranslucency`：决定观感与填充率的抗锯齿链路；
+   * - `groundAtmosphere` / `skyAtmosphere` / `maximumScreenSpaceError`：大气层与瓦片精度；
+   * - `canvasWidth/Height` / `pixels` / `pixelRatio`：真实绘制缓冲区规模（判断超采样是否被误开）；
+   * - `drawCommands` / `primitives` / `globeTiles`：渲染规模，用于定位性能瓶颈。
+   *
+   * @returns {Object} 快照对象；viewer 未就绪时返回 `{ available: false }`
+   */
+  getPerformanceSnapshot() {
+    const widget = this._delegate
+    const scene = widget?.scene
+    if (!scene) {
+      return { available: false }
+    }
+    const canvas = scene.canvas
+    return {
+      available: true,
+      // 分辨率与帧率策略
+      resolutionScale: widget.resolutionScale,
+      useBrowserRecommendedResolution: widget.useBrowserRecommendedResolution,
+      targetFrameRate: widget.targetFrameRate,
+      // 抗锯齿与大气层（观感 / 填充率的直接决定项）
+      msaaSamples: scene.msaaSamples,
+      msaaSupported: scene.msaaSupported,
+      fxaa: scene.processStages?.fxaa?.enabled ?? scene.postProcessStages?.fxaa?.enabled ?? null,
+      sunBloom: scene.sunBloom ?? null,
+      orderIndependentTranslucency: scene.orderIndependentTranslucency ?? null,
+      imageRendering: canvas?.style?.imageRendering ?? null,
+      groundAtmosphere: scene.globe?.showGroundAtmosphere ?? null,
+      skyAtmosphere: scene.skyAtmosphere?.show ?? null,
+      maximumScreenSpaceError: scene.globe?.maximumScreenSpaceError ?? null,
+      // 绘制规模
+      pixelRatio: scene.pixelRatio,
+      canvasWidth: canvas?.width ?? 0,
+      canvasHeight: canvas?.height ?? 0,
+      pixels: (canvas?.width ?? 0) * (canvas?.height ?? 0),
+      drawCommands: scene.frameState?.commandList?.length ?? 0,
+      primitives: scene.primitives?.length ?? 0,
+      globeTiles: scene.globe?.surface?.tilesLoaded?.length ?? null,
+    }
+  }
+
+  /**
+   * 应用渲染质量档位（**直接写 Cesium 原生对象，不经过 `setOptions` 重放**）
+   *
+   * ## 为什么库层需要它
+   * 使用方调优渲染参数时若走 `setOptions`，会被「合并 options 后整体重放」影响；
+   * 而直接操作 `viewer.delegate.scene` 又需要触碰 Cesium 原生对象
+   * （DC 不导出 Cesium 命名空间，业务代码这样做既脆弱又重复）。
+   * 本方法把「档位 → 原生对象」的写入收敛到库层，业务侧只表达**意图**。
+   *
+   * ## 可传字段（全部可选，只写传入项）
+   * - `resolutionScale`：绘制缓冲区缩放（>1 为超采样，填充率按平方增长）；
+   * - `useDevicePixelRatio`：是否使用设备像素比（`false` = 按 CSS 像素渲染，性能优先）；
+   * - `targetFrameRate`：渲染循环帧率上限（`null`/`undefined` = 不限）；
+   * - `msaaSamples`：硬件多重采样数（几何抗锯齿，对折线/虚线边缘真实生效）；
+   * - `fxaa`：图像空间抗锯齿（与 MSAA 叠加属重复投入，且会糊化细线）；
+   * - `sunBloom`：太阳光晕（每帧多个全屏 pass）；
+   * - `orderIndependentTranslucency`：顺序无关半透明（**true 时半透明图元走单采样 FBO，MSAA 失效**）；
+   * - `imageRendering`：画布重采样方式（`'auto'` 平滑 / `'pixelated'` 最近邻）；
+   * - `groundAtmosphere` / `skyAtmosphere`：地面大气散射 / 天空与太阳月亮；
+   * - `maximumScreenSpaceError`：地球瓦片最大屏幕空间误差（越大瓦片越少、画面越糊）。
+   *
+   * ## 注意事项
+   * 1. 本方法**不修改** `_options`，因此后续若有人调用 `setOptions`，仍可能按 DC 选项覆盖同名项；
+   *    建议在 `setOptions` **之后**调用本方法，且运行期不要反复调用 `setOptions`；
+   * 2. `orderIndependentTranslucency` 属初始化期参数，运行期改动在部分 Cesium 版本上不生效，
+   *    应在 `new Viewer({ orderIndependentTranslucency })` 时指定；
+   * 3. 写入后触发一次 `requestRender()`，保证档位立即生效。
+   *
+   * @param {Object} options 档位字段（见上）
+   * @returns {Viewer}
+   */
+  setRenderQuality(options = {}) {
+    const widget = this._delegate
+    const scene = widget?.scene
+    if (!scene) {
+      return this
+    }
+    if (options.resolutionScale != null) {
+      widget.resolutionScale = +options.resolutionScale
+    }
+    if (options.useDevicePixelRatio != null) {
+      widget.useBrowserRecommendedResolution = !options.useDevicePixelRatio
+    }
+    if (options.targetFrameRate !== undefined) {
+      widget.targetFrameRate = options.targetFrameRate ?? undefined
+    }
+    if (options.msaaSamples != null && scene.msaaSupported !== false) {
+      scene.msaaSamples = +options.msaaSamples
+    }
+    if (options.fxaa != null && scene.postProcessStages?.fxaa) {
+      scene.postProcessStages.fxaa.enabled = !!options.fxaa
+    }
+    if (options.sunBloom != null) {
+      scene.sunBloom = !!options.sunBloom
+    }
+    if (options.orderIndependentTranslucency != null) {
+      scene.orderIndependentTranslucency = !!options.orderIndependentTranslucency
+    }
+    if (options.imageRendering != null && scene.canvas) {
+      scene.canvas.style.imageRendering = options.imageRendering
+    }
+    if (options.groundAtmosphere != null && scene.globe) {
+      scene.globe.showGroundAtmosphere = !!options.groundAtmosphere
+    }
+    if (options.skyAtmosphere != null) {
+      if (scene.skyAtmosphere) scene.skyAtmosphere.show = !!options.skyAtmosphere
+      if (scene.sun) scene.sun.show = !!options.skyAtmosphere
+      if (scene.moon) scene.moon.show = !!options.skyAtmosphere
+    }
+    if (options.maximumScreenSpaceError != null && scene.globe) {
+      scene.globe.maximumScreenSpaceError = +options.maximumScreenSpaceError
+    }
+    /** 记录最近一次应用的档位（供 `getRenderQuality()` 回读「期望值」） */
+    this._renderQuality = { ...(this._renderQuality || {}), ...options }
+    if (typeof scene.requestRender === 'function') {
+      scene.requestRender()
+    }
+    return this
+  }
+
+  /**
+   * 读取渲染质量：**期望值 + 真实生效值**
+   *
+   * `requested` 为最近一次 `setRenderQuality` 传入的字段；
+   * `effective` 为原生对象上的真实值（来自 `getPerformanceSnapshot()`）。
+   * 二者不一致通常意味着被 `setOptions` 或其它代码覆盖 —— 这是定位"档位没生效"的第一手线索。
+   *
+   * @returns {{requested: Object, effective: Object}}
+   */
+  getRenderQuality() {
+    return {
+      requested: { ...(this._renderQuality || {}) },
+      effective: this.getPerformanceSnapshot(),
+    }
+  }
+
+  /**
+   * 解析「像素密度」：一个 CSS 像素应当用多少纹理像素来绘制图标/贴图
+   *
+   * ## 为什么需要它
+   * 当绘制缓冲区小于屏幕物理像素时（例如按 CSS 像素渲染 `useBrowserRecommendedResolution = true`
+   * 而屏幕 `devicePixelRatio = 2`），billboard 图标会先被画布放大再上屏 → **发虚**。
+   * 把纹理密度补到「屏幕物理像素」口径即可与 DOM 渲染（`<img>`）的锐利度对齐：
+   * 纹理像素 = CSS 像素 × 本方法返回值。
+   *
+   * 计算口径：`window.devicePixelRatio ÷ scene.pixelRatio`（后者为绘制缓冲区与 CSS 尺寸之比）。
+   * 因此当绘制缓冲区已是物理像素（如 `useDevicePixelRatio = true`）时结果为 **1**，不重复放大。
+   *
+   * 配套用法：
+   * ```js
+   * billboard.size = [82, 69]
+   * billboard.pixelDensity = viewer.resolvePixelDensity()   // 密度≤1 时库内自动跳过
+   * ```
+   *
+   * @returns {number} 密度系数，恒 ≥ 1、≤ 4
+   */
+  resolvePixelDensity() {
+    const screenRatio =
+      typeof window !== 'undefined' ? Number(window.devicePixelRatio) || 1 : 1
+    const scene = this._delegate?.scene
+    const canvas = scene?.canvas
+    // 绘制缓冲区与 CSS 尺寸之比：1 表示绘制缓冲区就是 CSS 尺寸
+    let bufferRatio = Number(scene?.pixelRatio)
+    if (!Number.isFinite(bufferRatio) || bufferRatio <= 0) {
+      const cssWidth = Number(canvas?.clientWidth) || 0
+      const bufferWidth = Number(canvas?.width) || 0
+      bufferRatio = cssWidth > 0 && bufferWidth > 0 ? bufferWidth / cssWidth : 1
+    }
+    const density = screenRatio / (bufferRatio || 1)
+    if (!Number.isFinite(density) || density <= 1) return 1
+    return Math.min(density, 4)
+  }
+
+  /**
    * Sets camera pitch range
    * @param min
    * @param max

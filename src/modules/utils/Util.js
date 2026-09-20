@@ -2,7 +2,7 @@
  * @Author: Caven
  * @Date: 2019-12-31 17:58:01
  * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 18:20:00
+ * @Last Modified Time : 2026-09-20 15:40:00
  */
 
 /**
@@ -215,6 +215,37 @@ class Util {
       return 0
     }
     return julianDate.dayNumber * 86400 + julianDate.secondsOfDay
+  }
+
+  /**
+   * 线宽语义保护：把折线宽度规整到安全区间（默认 `[1, 12]`，单位为 CSS 像素）
+   *
+   * ## 为什么需要它
+   * 业务侧线宽多来自后端配置或表单，很容易写出越界值，而 Cesium 对越界值的反应是**静默异常**：
+   * - `width < 1`：`PolylineVS` 中有 `if (width < 1.0) { show = 0.0; }` —— **整条线不绘制**，
+   *   表现为「配置了 0.5，结果这条线凭空消失」，排查成本极高；
+   * - `width` 过大：生成极宽的四边形，既大面积遮挡地图，又按面积消耗填充率。
+   *
+   * ## 语义说明（重要）
+   * 本方法**不做像素比换算**：Cesium 折线 `width` 的语义就是 CSS 像素，其顶点着色器内部
+   * 已执行 `expandWidth * czm_pixelRatio`（见 `PolylineCommon.getPolylineWindowCoordinatesEC`），
+   * 再乘一次像素比会让线宽成倍变粗（历史错误假设，已由源码证实）。
+   *
+   * 本方法**不会自动生效**：`Polyline.setStyle` 仅在显式传入 `clampLineWidth: true` 时调用它
+   * （新增能力默认关闭，不改变既有行为）。
+   *
+   * @param {number} width 线宽（CSS 像素）
+   * @param {{min?: number, max?: number}} [range] 目标区间（缺省 `1 ~ 12`）
+   * @returns {number} 规整后的线宽；非法入参（非数值 / ≤ 0）返回下限
+   */
+  static clampLineWidth(width, range = {}) {
+    const min = Number.isFinite(range.min) ? range.min : 1
+    const max = Number.isFinite(range.max) ? range.max : 12
+    const value = Number(width)
+    if (!Number.isFinite(value) || value <= 0) {
+      return min
+    }
+    return Math.min(Math.max(value, min), max)
   }
 }
 

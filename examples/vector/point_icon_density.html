@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>dc-example</title>
+    <script src="/libs/dc-sdk/dc.min.js"></script>
+    <link href="/libs/dc-sdk/dc.min.css" type="text/css" rel="stylesheet" />
+    <link href="../index.css" type="text/css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="viewer-container" class="viewer-container"></div>
+    <script>
+      DC.config.baseUrl = '../libs/dc-sdk/resources/'
+      let viewer = new DC.Viewer('viewer-container')
+      let baseLayer = DC.ImageryLayerFactory.createImageryLayer(
+        DC.ImageryType.AMAP,
+        {
+          style: 'img',
+          crs: 'WGS84'
+        }
+      )
+      viewer.addBaseLayer(baseLayer, {
+        brightness: 0.1
+      })
+
+      let layer = new DC.VectorLayer('layer')
+      viewer.addLayer(layer)
+
+      /**
+       * 图标纹理密度（`CustomBillboard.pixelDensity`）
+       *
+       * 同一个图标、同一个**视觉尺寸**，只改纹理密度：
+       *  - `width/height` 放大 density 倍（提升纹理密度）；
+       *  - `scale = 1/density` 把视觉尺寸还原（屏幕尺寸逐像素不变）；
+       *  - 并在密度 > 1 时按目标物理分辨率**预栅格化**图标（Cesium 从不按
+       *    `width/height` 重新栅格化图片，纹理永远来自 `<img>` 固有尺寸）。
+       */
+      const visualSize = [48, 48]
+      const densities = [1, 2, 4, true]
+      const billboards = densities.map((density, index) => {
+        let billboard = new DC.CustomBillboard(
+          new DC.Position(120.36 + index * 0.02, 31.1, 2000),
+          '../assets/icon/camera.png'
+        )
+        // 视觉尺寸（CSS 像素）：纹理尺寸由库层按密度换算，这里不要传放大后的值
+        billboard.size = visualSize
+        billboard.addTo(layer)
+        // ⚠ 必须在 `addTo` 之后设置：`_mountedHook` 会按视觉尺寸重写 width/height
+        billboard.pixelDensity = density
+        return billboard
+      })
+
+      /** 演示「运行期换图标」：换图后库层会重新预栅格化，不会退回模糊 */
+      let swapTarget = new DC.CustomBillboard(
+        new DC.Position(120.46, 31.1, 2000),
+        '../assets/icon/camera.png'
+      )
+      swapTarget.size = visualSize
+      swapTarget.addTo(layer)
+      swapTarget.pixelDensity = 2
+
+      /** 与 1× 屏保持一致：`true` / `2` 的语义 = 补到屏幕物理像素 */
+      const screenDpr =
+        typeof window !== 'undefined' ? Number(window.devicePixelRatio) || 1 : 1
+      /** `Viewer.resolvePixelDensity()`：按当前绘制缓冲区与屏幕物理像素算出的推荐值 */
+      const recommended = viewer.resolvePixelDensity()
+
+      const describe = (billboard, label) => {
+        const graphics = billboard.delegate.billboard
+        const value = (property) =>
+          property && typeof property.getValue === 'function'
+            ? property.getValue(DC.JulianDate.now())
+            : property
+        const image = value(graphics.image)
+        return (
+          `${label}　密度=${billboard.pixelDensity}` +
+          `　纹理=${value(graphics.width)}×${value(graphics.height)}` +
+          `　scale=${value(graphics.scale)}` +
+          `　视觉=${billboard.size[0]}×${billboard.size[1]}` +
+          `　预栅格化=${String(image).startsWith('data:image/png') ? '是' : '否'}`
+        )
+      }
+
+      let swapCount = 0
+      const panel = document.createElement('div')
+      panel.style.cssText =
+        'position:absolute;left:12px;top:12px;z-index:9;padding:10px 14px;' +
+        'background:rgba(8,18,24,.85);color:#cfe;border:1px solid #2a7;border-radius:6px;' +
+        'font:12px/1.9 Consolas,"Courier New",monospace;white-space:pre'
+      document.body.appendChild(panel)
+
+      const refresh = () => {
+        panel.textContent = [
+          `屏幕 devicePixelRatio=${screenDpr}　绘制缓冲区 pixelRatio=${viewer.getPerformanceSnapshot().pixelRatio}`,
+          `viewer.resolvePixelDensity() → ${recommended}（绘制缓冲区已是物理像素时为 1）`,
+          '',
+          ...billboards.map((billboard, index) =>
+            describe(billboard, `density=${densities[index]}`)
+          ),
+          describe(swapTarget, '换图标演示')
+        ].join('\n')
+      }
+      refresh()
+
+      /** 每 3 秒换一次图标，观察「换图后仍保持预栅格化」（不会退回模糊） */
+      setInterval(() => {
+        swapCount++
+        swapTarget.icon =
+          swapCount % 2 === 1
+            ? '../assets/icon/code.svg'
+            : '../assets/icon/camera.png'
+        refresh()
+        // 预栅格化是异步的（库层按「url + 尺寸」缓存任务）：稍后再刷一次，展示换图后的最终状态
+        setTimeout(refresh, 400)
+      }, 3000)
+
+      viewer.flyTo(layer)
+    </script>
+  </body>
+</html>

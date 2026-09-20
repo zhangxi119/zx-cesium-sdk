@@ -10,7 +10,7 @@ export { MouseMode } from './option'
 
 export { default as Position } from './position/Position'
 
-export { Util, DomUtil } from './utils'
+export { Util, DomUtil, IntervalGate, TrailingThrottle } from './utils'
 
 export { Transform, Transform as T, CoordTransform } from './transform'
 
@@ -29,6 +29,8 @@ export { default as HeatMapLayer } from './heat-map/HeatMapLayer'
 export { default as WindLayer } from './wind/WindLayer'
 
 export { default as ChartLayer } from './chart/ChartLayer'
+
+export * from './self-check'
 
 export * from './overlay'
 

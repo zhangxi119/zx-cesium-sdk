@@ -103,6 +103,10 @@ const EXAMPLE_LIST = [
         name: '地球(裁剪)',
         page: 'globe_clip_polygon.html',
       },
+      {
+        name: '渲染档位/快照/自检',
+        page: 'render_quality.html',
+      },
     ],
   },
   {
@@ -342,6 +346,14 @@ const EXAMPLE_LIST = [
       {
         name: '抗锯齿虚线',
         page: 'polyline_dash_aa.html',
+      },
+      {
+        name: '线宽语义保护',
+        page: 'polyline_clamp_width.html',
+      },
+      {
+        name: '图标纹理密度',
+        page: 'point_icon_density.html',
       },
       {
         name: '方向线',

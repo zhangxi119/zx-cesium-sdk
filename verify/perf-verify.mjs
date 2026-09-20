@@ -233,6 +233,278 @@ section('G2 · CustomBillboard / CustomLabel 底部圆环')
   ok('rotateAmount≠0 → 回调', bb.delegate.ellipse.stRotation instanceof Cesium.CallbackProperty)
 }
 
+// ------------------------------------------------- B2/B3 图标清晰度（纹理密度 + 预栅格化）
+section('B2/B3 · CustomBillboard 纹理密度与图标预栅格化（默认关闭）')
+{
+  /** Cesium 图形属性经 Property 包装，取真实值需 getValue */
+  const val = (p) =>
+    p && typeof p.getValue === 'function'
+      ? p.getValue(Cesium.JulianDate.now())
+      : p
+  const position = () => new DC.Position(116, 39, 0)
+  const bbOf = (url) => new DC.CustomBillboard(position(), url)
+
+  // 预栅格化桩：jsdom 无 Image / 真实 canvas 后端（与 perf-core-verify 的 DOM 环境一致）
+  const rasterSizes = []
+  const crossOrigins = []
+  let failLoad = false
+  const toDataURLDesc = Object.getOwnPropertyDescriptor(
+    window.HTMLCanvasElement.prototype,
+    'toDataURL'
+  )
+  class FakeImage {
+    set crossOrigin(value) {
+      crossOrigins.push(value)
+    }
+    set src(_value) {
+      queueMicrotask(() => (failLoad ? this.onerror?.() : this.onload?.()))
+    }
+  }
+  globalThis.Image = FakeImage
+  window.HTMLCanvasElement.prototype.toDataURL = function toDataURL() {
+    rasterSizes.push([this.width, this.height])
+    return 'data:image/png;base64,RASTER'
+  }
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  // ---- 默认关闭：行为与既有版本逐像素一致（D-16）
+  const off = bbOf('/assets/rf.svg')
+  off.size = [82, 69]
+  await flush()
+  ok('默认 pixelDensity 为 1（新增能力默认关闭）', off.pixelDensity === 1, off.pixelDensity)
+  ok(
+    '默认关闭：纹理尺寸 = 视觉尺寸（不做换算）',
+    val(off.delegate.billboard.width) === 82 && val(off.delegate.billboard.height) === 69,
+    `${val(off.delegate.billboard.width)}×${val(off.delegate.billboard.height)}`
+  )
+  ok('默认关闭：不做任何栅格化（零开销）', rasterSizes.length === 0, rasterSizes.length)
+
+  // ---- 开启：纹理放大 + scale 还原（视觉尺寸逐像素不变）
+  const on = bbOf('/assets/rf.svg')
+  on.size = [82, 69]
+  on.pixelDensity = 2
+  const bb = on.delegate.billboard
+  ok(
+    'density=2：纹理尺寸翻倍（提升纹理密度）',
+    val(bb.width) === 164 && val(bb.height) === 138,
+    `${val(bb.width)}×${val(bb.height)}`
+  )
+  ok('density=2：scale=1/2 还原视觉尺寸', val(bb.scale) === 0.5, val(bb.scale))
+  ok(
+    '纹理尺寸 × scale 恒等于视觉尺寸',
+    val(bb.width) * val(bb.scale) === 82 && val(bb.height) * val(bb.scale) === 69
+  )
+  on.size = [48, 48]
+  ok(
+    '开启后再改 size：仍按密度换算',
+    val(bb.width) === 96 && val(bb.scale) === 0.5,
+    `${val(bb.width)}/${val(bb.scale)}`
+  )
+  on.setStyle({ scale: 1.5 })
+  ok('setStyle 显式 scale 优先（不被密度回写覆盖）', val(bb.scale) === 1.5, val(bb.scale))
+  on.setStyle({ rotation: 0.5 })
+  ok('setStyle 未传 scale：密度兜底重写 scale', val(bb.scale) === 0.5, val(bb.scale))
+
+  // ---- 密度解析：非法值关闭 / 上限夹紧 / true 取 devicePixelRatio
+  const bad = bbOf('/assets/rf.svg')
+  bad.size = [10, 10]
+  bad.pixelDensity = 0
+  ok(
+    'density=0 → 夹到 1（关闭）',
+    bad.pixelDensity === 1 && val(bad.delegate.billboard.width) === 10
+  )
+  bad.pixelDensity = Number.NaN
+  ok('density=NaN → 夹到 1（关闭）', bad.pixelDensity === 1)
+  bad.pixelDensity = 100
+  ok(
+    '极端密度夹到 4（防纹理过大）',
+    bad.pixelDensity === 4 && val(bad.delegate.billboard.width) === 40
+  )
+  const originalDpr = window.devicePixelRatio
+  Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true })
+  const auto = bbOf('/assets/rf.svg')
+  auto.size = [10, 10]
+  auto.pixelDensity = true
+  ok(
+    'pixelDensity=true → 取 devicePixelRatio（2）',
+    auto.pixelDensity === 2 && val(auto.delegate.billboard.width) === 20,
+    `${auto.pixelDensity}/${val(auto.delegate.billboard.width)}`
+  )
+  Object.defineProperty(window, 'devicePixelRatio', {
+    value: originalDpr,
+    configurable: true,
+  })
+
+  // ---- B-3 预栅格化（随密度联动）：Cesium 从不按 width/height 重栅格化图片
+  const hi = bbOf('/assets/hi.svg')
+  hi.size = [69, 65.5]
+  hi.delegate.billboard.image = '/assets/hi.svg'
+  hi.pixelDensity = 2
+  await flush()
+  ok(
+    '按「视觉尺寸 × 密度」预栅格化（69×65.5 → 138×131）',
+    rasterSizes.some(([w, h]) => w === 138 && h === 131),
+    JSON.stringify(rasterSizes)
+  )
+  ok(
+    '栅格化结果写回 billboard.image（高清 data URL）',
+    String(val(hi.delegate.billboard.image)).startsWith('data:image/png'),
+    val(hi.delegate.billboard.image)
+  )
+  ok('非 data/blob 资源声明 crossOrigin（避免画布污染）', crossOrigins.includes('anonymous'))
+
+  const dupA = bbOf('/assets/dup.svg')
+  dupA.size = [69, 65.5]
+  dupA.pixelDensity = 2
+  await flush()
+  const rastered = rasterSizes.length
+  const dupB = bbOf('/assets/dup.svg')
+  dupB.size = [69, 65.5]
+  dupB.pixelDensity = 2
+  await flush()
+  ok(
+    '同一 url + 尺寸命中缓存，不重复栅格化',
+    rasterSizes.length === rastered,
+    rasterSizes.length - rastered
+  )
+
+  failLoad = true
+  const broken = bbOf('/broken.svg')
+  broken.size = [10, 10]
+  broken.delegate.billboard.image = '/broken.svg'
+  broken.pixelDensity = 2
+  await flush()
+  ok(
+    '栅格化失败时保持原图标（不抛错、不影响可用性）',
+    val(broken.delegate.billboard.image) === '/broken.svg',
+    val(broken.delegate.billboard.image)
+  )
+
+  // ---- C-10 换图标后重新预栅格化（否则高清纹理被低分辨率原图覆盖 → 又发虚）
+  // ⚠ 上一条用例把加载桩置为「必定失败」，这里必须先复位，否则会误判为库层未重新栅格化
+  failLoad = false
+  const swap = bbOf('/assets/swap-a.svg')
+  swap.size = [69, 65.5]
+  swap.pixelDensity = 2
+  await flush()
+  const rasteredBeforeSwap = rasterSizes.length
+  swap.icon = '/assets/swap-b.svg'
+  await flush()
+  ok(
+    '换图标后重新预栅格化（密度开启，使用方按状态换图不会退回模糊）',
+    rasterSizes.length > rasteredBeforeSwap &&
+      String(val(swap.delegate.billboard.image)).startsWith('data:image/png'),
+    `${rasterSizes.length - rasteredBeforeSwap} / ${val(swap.delegate.billboard.image)}`
+  )
+
+  const quietSwap = bbOf('/assets/off-a.svg')
+  quietSwap.size = [69, 65.5]
+  await flush()
+  const rasteredBeforeQuietSwap = rasterSizes.length
+  quietSwap.icon = '/assets/off-b.svg'
+  await flush()
+  ok(
+    '密度关闭时换图标不触发栅格化（默认行为零变化）',
+    rasterSizes.length === rasteredBeforeQuietSwap,
+    rasterSizes.length - rasteredBeforeQuietSwap
+  )
+
+  // ---- 同 tick 批量创建（真实场景：一次数据推送创建 N 个同图标标记）
+  const rasteredBeforeBatch = rasterSizes.length
+  const batchA = bbOf('/assets/batch.svg')
+  batchA.size = [69, 65.5]
+  batchA.pixelDensity = 2
+  const batchB = bbOf('/assets/batch.svg')
+  batchB.size = [69, 65.5]
+  batchB.pixelDensity = 2
+  await flush()
+  ok(
+    '同 tick 创建同一图标：两个实例都完成预栅格化（不得返回"进行中"的占位结果）',
+    String(val(batchA.delegate.billboard.image)).startsWith('data:image/png') &&
+      String(val(batchB.delegate.billboard.image)).startsWith('data:image/png'),
+    `${val(batchA.delegate.billboard.image)} / ${val(batchB.delegate.billboard.image)}`
+  )
+  ok(
+    '同 tick 共享同一任务：只栅格化一次（去重仍然成立）',
+    rasterSizes.length - rasteredBeforeBatch === 1,
+    rasterSizes.length - rasteredBeforeBatch
+  )
+
+  // 还原环境（后续小节不受影响）
+  failLoad = false
+  delete globalThis.Image
+  if (toDataURLDesc) {
+    Object.defineProperty(window.HTMLCanvasElement.prototype, 'toDataURL', toDataURLDesc)
+  }
+}
+
+// ------------------------------------------------- A2 线宽语义保护（opt-in）
+section('A2 · Polyline 线宽语义保护（默认不干预，opt-in 钳制）')
+{
+  const val = (p) =>
+    p && typeof p.getValue === 'function'
+      ? p.getValue(Cesium.JulianDate.now())
+      : p
+  const line = () =>
+    new DC.Polyline([
+      new DC.Position(116, 39, 0),
+      new DC.Position(116.1, 39.1, 0),
+    ])
+
+  // ---- 默认：完全不干预（D-16，与既有版本逐字节一致）
+  const raw = line()
+  raw.setStyle({ width: 0.5 })
+  ok('默认不传开关：0.5 原样写入（不擅自修正）', val(raw.delegate.polyline.width) === 0.5, val(raw.delegate.polyline.width))
+  const rawBig = line()
+  rawBig.setStyle({ width: 100 })
+  ok('默认不传开关：100 原样写入', val(rawBig.delegate.polyline.width) === 100, val(rawBig.delegate.polyline.width))
+
+  // ---- opt-in：钳制到 [1, 12]
+  const low = line()
+  low.setStyle({ width: 0.5, clampLineWidth: true })
+  ok('clampLineWidth=true：0.5 → 1（否则 Cesium 整条不绘制）', val(low.delegate.polyline.width) === 1, val(low.delegate.polyline.width))
+  const high = line()
+  high.setStyle({ width: 100, clampLineWidth: true })
+  ok('clampLineWidth=true：100 → 12', val(high.delegate.polyline.width) === 12, val(high.delegate.polyline.width))
+  const inside = line()
+  inside.setStyle({ width: 3.5, clampLineWidth: true })
+  ok('clampLineWidth=true：区间内宽度不变（3.5，不取整）', val(inside.delegate.polyline.width) === 3.5, val(inside.delegate.polyline.width))
+  const illegal = line()
+  illegal.setStyle({ width: Number.NaN, clampLineWidth: true })
+  ok('clampLineWidth=true：非法宽度落到下限 1', val(illegal.delegate.polyline.width) === 1, val(illegal.delegate.polyline.width))
+
+  // ---- strictLineWidth 是更高优先级的逃生舱
+  const strict = line()
+  strict.setStyle({ width: 0.5, clampLineWidth: true, strictLineWidth: true })
+  ok('strictLineWidth=true 否决钳制：0.5 原样写入', val(strict.delegate.polyline.width) === 0.5, val(strict.delegate.polyline.width))
+
+  // ---- 开关必须被消费，不能变成实体上的无用属性
+  const consumed = line()
+  consumed.setStyle({ width: 2, clampLineWidth: true, strictLineWidth: true })
+  ok(
+    '两个开关都不透传给 Cesium 实体',
+    consumed.delegate.polyline.clampLineWidth === undefined &&
+      consumed.delegate.polyline.strictLineWidth === undefined
+  )
+  ok(
+    '两个开关也不留在 _style 里',
+    consumed._style.clampLineWidth === undefined &&
+      consumed._style.strictLineWidth === undefined
+  )
+
+  // ---- Util.clampLineWidth 本体
+  ok(
+    'Util.clampLineWidth 默认区间 [1, 12]',
+    DC.Util.clampLineWidth(0) === 1 && DC.Util.clampLineWidth(99) === 12
+  )
+  ok('Util.clampLineWidth 支持自定义区间', DC.Util.clampLineWidth(5, { min: 2, max: 4 }) === 4)
+  ok(
+    'Util.clampLineWidth 非数值/缺失落到下限',
+    DC.Util.clampLineWidth('abc') === 1 && DC.Util.clampLineWidth(undefined) === 1
+  )
+  ok('Util.clampLineWidth 不做像素比换算（3 → 3）', DC.Util.clampLineWidth(3) === 3)
+}
+
 section('G2 · TrajectoryLine 恒定几何')
 {
   const traj = new DC.TrajectoryLine(

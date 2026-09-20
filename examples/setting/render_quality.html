@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>dc-example</title>
+    <script src="/libs/dc-sdk/dc.min.js"></script>
+    <link href="/libs/dc-sdk/dc.min.css" type="text/css" rel="stylesheet" />
+    <link href="../index.css" type="text/css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="viewer-container" class="viewer-container"></div>
+    <script>
+      DC.config.baseUrl = '../libs/dc-sdk/resources/'
+      let viewer = new DC.Viewer('viewer-container')
+      let baseLayer = DC.ImageryLayerFactory.createImageryLayer(
+        DC.ImageryType.AMAP,
+        {
+          style: 'img',
+          crs: 'WGS84'
+        }
+      )
+      viewer.addBaseLayer(baseLayer, {
+        brightness: 0.1
+      })
+
+      let layer = new DC.VectorLayer('layer')
+      viewer.addLayer(layer)
+
+      // 摆几个图元，让快照里的「绘制规模」字段（绘制命令 / 图元数）非空
+      layer.addOverlay(new DC.Polyline('-75, 35; -45, 35').setStyle({
+        width: 3,
+        material: DC.Color.YELLOW,
+        arcType: 0
+      }))
+      layer.addOverlay(
+        new DC.Circle(new DC.Position(-60, 30, 0), 200000).setStyle({
+          material: DC.Color.CYAN.withAlpha(0.15),
+          outlineColor: DC.Color.CYAN,
+          outlineWidth: 2
+        })
+      )
+      let icon = new DC.CustomBillboard(
+        new DC.Position(-60, 30, 0),
+        '../assets/icon/camera.png'
+      )
+      icon.size = [48, 48]
+      icon.addTo(layer)
+      icon.pixelDensity = viewer.resolvePixelDensity()
+
+      /**
+       * 渲染档位：**库层只提供机制，数值策略由使用方决定**
+       *
+       * `setRenderQuality` 直接写 Cesium 原生对象（不经过 `setOptions` 的整体重放，
+       * 因此不会把 `msaaSamples` 等参数重置回 DC 默认值）。
+       */
+      const profiles = {
+        高清: {
+          resolutionScale: 1,
+          useDevicePixelRatio: true,
+          msaaSamples: 4,
+          fxaa: false,
+          sunBloom: false,
+          imageRendering: 'auto',
+          maximumScreenSpaceError: 2
+        },
+        均衡: {
+          resolutionScale: 1,
+          useDevicePixelRatio: false,
+          msaaSamples: 4,
+          fxaa: false,
+          sunBloom: false,
+          imageRendering: 'auto',
+          maximumScreenSpaceError: 2
+        },
+        性能: {
+          resolutionScale: 1,
+          useDevicePixelRatio: false,
+          msaaSamples: 1,
+          fxaa: false,
+          sunBloom: false,
+          imageRendering: 'auto',
+          maximumScreenSpaceError: 4,
+          targetFrameRate: 30
+        }
+      }
+
+      const panel = document.createElement('div')
+      panel.style.cssText =
+        'position:absolute;left:12px;top:12px;z-index:9;padding:10px 14px;' +
+        'background:rgba(8,18,24,.85);color:#cfe;border:1px solid #2a7;border-radius:6px;' +
+        'font:12px/1.9 Consolas,"Courier New",monospace;white-space:pre'
+      document.body.appendChild(panel)
+
+      /** 读取库层快照与自检报告，并显示在面板上 */
+      const refresh = (title) => {
+        const quality = viewer.getRenderQuality()
+        const snapshot = quality.effective
+        const report = DC.selfCheck({ viewer })
+        panel.textContent = [
+          title || '',
+          `期望值 requested = ${JSON.stringify(quality.requested)}`,
+          '',
+          `resolutionScale=${snapshot.resolutionScale}　useBrowserRecommendedResolution=${snapshot.useBrowserRecommendedResolution}　targetFrameRate=${snapshot.targetFrameRate}`,
+          `msaa=${snapshot.msaaSamples}（supported=${snapshot.msaaSupported}）　fxaa=${snapshot.fxaa}　sunBloom=${snapshot.sunBloom}　OIT=${snapshot.orderIndependentTranslucency}`,
+          `groundAtmosphere=${snapshot.groundAtmosphere}　skyAtmosphere=${snapshot.skyAtmosphere}　SSE=${snapshot.maximumScreenSpaceError}　imageRendering=${snapshot.imageRendering}`,
+          `画布=${snapshot.canvasWidth}×${snapshot.canvasHeight}@${snapshot.pixelRatio}（${(
+            snapshot.pixels / 1e6
+          ).toFixed(2)} Mpx）　绘制命令=${snapshot.drawCommands}　图元=${snapshot.primitives}`,
+          '',
+          `selfCheck：${report.ok ? '全部命中' : `${report.warnCount} 项未命中`}`,
+          ...report.items.map(
+            (item) =>
+              `　${item.status === 'pass' ? '✓' : item.status === 'warn' ? '✗' : '－'} ${item.key}　${item.detail}`
+          )
+        ].join('\n')
+      }
+
+      /** 档位切换按钮 */
+      Object.keys(profiles).forEach((name) => {
+        let button = document.createElement('button')
+        button.textContent = name
+        button.style.cssText =
+          'position:absolute;z-index:10;bottom:24px;padding:6px 14px;border-radius:4px;' +
+          'border:1px solid #2a7;background:rgba(8,18,24,.85);color:#cfe;cursor:pointer;' +
+          'font:13px Consolas,monospace'
+        button.style.left = `${24 + Object.keys(profiles).indexOf(name) * 84}px`
+        button.onclick = () => {
+          viewer.setRenderQuality(profiles[name])
+          refresh(`已应用档位「${name}」`)
+        }
+        document.body.appendChild(button)
+      })
+
+      // 初始：均衡档
+      viewer.setRenderQuality(profiles['均衡'])
+      refresh('初始档位「均衡」')
+      setInterval(() => refresh(''), 3000)
+
+      viewer.flyTo(layer)
+    </script>
+  </body>
+</html>
