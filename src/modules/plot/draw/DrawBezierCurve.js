@@ -1,8 +1,6 @@
 /**
  * DrawBezierCurve - 绘制贝塞尔曲线工具
- * @Author : zisahng520
  */
-
 import { Cesium } from '../../../libs'
 import Draw from './Draw'
 import { PlotEventType } from '../../event'

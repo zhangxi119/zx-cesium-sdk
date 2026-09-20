@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import Vector from './Vector'
 
 class Field {

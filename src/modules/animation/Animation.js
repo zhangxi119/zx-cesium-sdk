@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 class Animation {
   constructor(viewer) {
     this._viewer = viewer

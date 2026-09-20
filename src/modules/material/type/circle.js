@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import CircleBlurMaterial from '../shader/circle/CircleBlurMaterial.glsl'
 import CircleDiffuseMaterial from '../shader/circle/CircleDiffuseMaterial.glsl'

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import czm_cellular from '../shader/thirdpart/cellular.glsl'
 import czm_snoise from '../shader/thirdpart/snoise.glsl'

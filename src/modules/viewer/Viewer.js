@@ -1,8 +1,3 @@
-/**
- * @Author: Caven
- * @Date: 2019-12-27 17:13:24
- */
-
 import { Cesium } from '../../libs'
 import { getParam } from '../../global-api'
 import Parse from '../parse/Parse'

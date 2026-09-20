@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { LayerGroupEventType } from '../EventType'
 import Event from '../Event'
 

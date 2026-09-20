@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import { area } from '../../math'
 import EditPolygon from '../edit/EditPolygon'

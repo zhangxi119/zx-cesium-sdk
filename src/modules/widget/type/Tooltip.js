@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import Widget from '../Widget'
 import State from '../../state/State'
 import { DomUtil } from '../../utils'

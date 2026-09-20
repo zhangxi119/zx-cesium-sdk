@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import State from '../../state/State'
 import Icons from '../../icons'

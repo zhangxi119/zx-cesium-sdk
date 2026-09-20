@@ -1,7 +1,3 @@
-/**
- @author : Caven Chen
- **/
-
 'use strict'
 
 import fse from 'fs-extra'
@@ -94,7 +90,6 @@ async function buildModules(options) {
               '{{__CESIUM_VERSION__}}',
               packageJson.dependencies['cesium'].replace('^', '')
             )
-            .replace('{{__AUTHOR__}}', packageJson.author)
             .replace('{{__HOME_PAGE__}}', packageJson.homepage)
             .replace('{{__REPOSITORY__}}', packageJson.repository)}
     }`
@@ -158,7 +153,6 @@ async function addCopyright(options) {
   )
   header = header
     .replace('{{__VERSION__}}', packageJson.version)
-    .replace('{{__AUTHOR__}}', packageJson.author)
     .replace('{{__REPOSITORY__}}', packageJson.repository)
 
   if (options.iife) {

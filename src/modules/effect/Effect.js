@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import BlackAndWhite from './type/BlackAndWhite'
 import Bloom from './type/Bloom'
 import Brightness from './type/Brightness'

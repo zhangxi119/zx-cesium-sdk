@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { ViewerEventType } from '../EventType'
 import Event from '../Event'
 

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { TrackEventType } from '../EventType'
 import Event from '../Event'
 

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import WallDiffuseMaterial from '../shader/wall/WallDiffuseMaterial.glsl'
 import WallImageTrailMaterial from '../shader/wall/WallImageTrailMaterial.glsl'

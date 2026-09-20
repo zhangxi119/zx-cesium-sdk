@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../libs'
 const { Cartesian3, Ellipsoid, Math: CesiumMath } = Cesium
 

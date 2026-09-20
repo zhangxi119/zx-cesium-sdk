@@ -1,7 +1,7 @@
 # DC-SDK
 
 <p>
-<img src="https://img.shields.io/github/actions/workflow/status/dvgis/dc-sdk/build.yml"/>
+<img src="https://img.shields.io/github/actions/workflow/status/zhangxi119/zx-cesium-sdk/build.yml"/>
 <img src="https://img.shields.io/badge/license-Apache%202-blue"/>
 <a href="https://www.npmjs.com/package/@dvgis/dc-sdk" target="_blank">
  <img src="https://img.shields.io/npm/v/@dvgis/dc-sdk?color=orange&logo=npm" />
@@ -51,7 +51,7 @@ import '@dvgis/dc-sdk/dist/dc.min.css'
 
 `CDN`
 
-[Resources 下载链接](https://github.com/dvgis/dc-sdk/releases)
+[Resources 下载链接](https://github.com/zhangxi119/zx-cesium-sdk/releases)
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@dvgis/dc-sdk/dist/dc.base.js"></script>
@@ -181,19 +181,6 @@ DC.ready().then(() => {
 
 [更多>>](http://dc.dvgis.cn/#/examples)
 
-
-## 支持
-
-> 如果dc-sdk能够给您带来效益，请支持一下呗~
-
-<p style='display: flex;justify-content:space-around'>
-<img src="https://resource.dvgis.cn/assets/images/zfb.png" title="支付宝" width="240px" height="240px" />
-<img src="https://resource.dvgis.cn/assets/images/wx.png" title="微信"  width="240px" height="240px" />
-</p>
-
-
-
-
 ## QQ 群
 
 <p style='display: flex;justify-content:space-between'>
@@ -201,17 +188,5 @@ DC.ready().then(() => {
 <img src="https://resource.dvgis.cn/assets/images/q1.png" title="数字视觉(已满)"  width="240px" height="240px" style='margin-right: 15px'/>
 <img src="https://resource.dvgis.cn/assets/images/q2.png" title="Cesium开心农场"  width="240px" height="240px"/>
 </p>
-
-## 版权声明
-
-```warning
-1.框架作为一个基础平台，代码开源，任何个人和机构可以修改、重构，无需经过我方授权。
-2.任何个人和机构修改框架出现的问题，我方无需负责。
-3.后期会添加一些行业性的插件和工具，代码会适量开源。
-4.对于我方发布的程序包，任何个人和机构在遵守下列条件的前提下可以永久免费使用:
-   1)程序包完整引用；
-   2)保留此版权信息在控制台输出
-我方保留对此版权信息的最终解释权。
-```
 
 ## 谢谢

@@ -2,11 +2,7 @@
  * @license
  * @name dc-sdk
  * @github {{__REPOSITORY__}}
- * @author {{__AUTHOR__}}
- * @organization dvgis
  * @version {{__VERSION__}}
- *
- * Copyright (c) 2019-present Caven Chen
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +15,4 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Portions licensed separately.
- * See https://github.com/dvt3d/dc-sdk/blob/master/LICENSE.MD for full licensing details.
  */

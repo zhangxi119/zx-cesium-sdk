@@ -1,9 +1,3 @@
-/**
- * @Author : Caven Chen
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 17:50:00
- */
-
 import { Cesium } from '../../../libs'
 import Widget from '../Widget'
 import State from '../../state/State'

@@ -1,1 +1,4 @@
-﻿{"recommendations":["psioniq.psi-header"]}
+{
+  "recommendations": [],
+  "unwantedRecommendations": ["psioniq.psi-header"]
+}

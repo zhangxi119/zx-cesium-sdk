@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import Edit from './Edit'
 import FineArrowGraphics from '../graphics/FineArrowGraphics'

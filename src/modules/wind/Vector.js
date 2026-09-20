@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 class Vector {
   constructor(u, v) {
     this.u = u

@@ -1,6 +1,3 @@
-/**
- * @Author : Caven Chen
- */
 import { Cesium } from '../../libs'
 import MouseMode from './MouseMode'
 

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import ContextMenu from './type/ContextMenu'
 import LocationBar from './type/LocationBar'
 import MapSplit from './type/MapSplit'

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 export { default as Viewer } from './viewer/Viewer'
 
 export * from './event'

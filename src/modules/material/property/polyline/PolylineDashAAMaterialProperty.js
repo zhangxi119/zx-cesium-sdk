@@ -1,9 +1,3 @@
-/**
- * @Author : zhangxi119
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 20:40:00
- */
-
 import { Cesium } from '../../../../libs'
 
 /**

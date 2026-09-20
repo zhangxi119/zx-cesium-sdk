@@ -1,6 +1,3 @@
-/**
- * @Author : Caven Chen
- */
 import { getLib } from '../../global-api/lib-utils.js'
 import { Layer } from '../layer'
 import State from '../state/State'

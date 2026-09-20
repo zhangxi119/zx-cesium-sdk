@@ -1,8 +1,6 @@
 /**
  * PolylineMultiArrow Material Property
- * @Author : Converted from fh2
  */
-
 import { Cesium } from '../../../../libs'
 import MaterialProperty from '../../MaterialProperty'
 

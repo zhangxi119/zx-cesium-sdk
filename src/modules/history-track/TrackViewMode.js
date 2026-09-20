@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const TrackViewMode = {
   FP: '1',
   TP: '2',

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 export default function bounds(positions = [], expand = 0) {
   let minLng = 180
   let minLat = 90

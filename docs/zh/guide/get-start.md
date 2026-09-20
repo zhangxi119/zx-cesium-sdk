@@ -19,7 +19,7 @@ import '@dvgis/dc-sdk/dist/dc.min.css'
 
 `CDN`
 
-[下载链接](https://github.com/dvgis/dc-sdk/releases)
+[下载链接](https://github.com/zhangxi119/zx-cesium-sdk/releases)
 
 ```html
 
@@ -153,7 +153,7 @@ export default defineConfig({
 
 `CDN`
 
-直接通过[网站](https://github.com/dvgis/dc-sdk/releases)下载当前版本的资源文件
+直接通过[网站](https://github.com/zhangxi119/zx-cesium-sdk/releases)下载当前版本的资源文件
 
 :::danger
 CDN 模式下开发时尽量不要使用 DC 为变量名或者命名空间，避免框架无法正常使用。

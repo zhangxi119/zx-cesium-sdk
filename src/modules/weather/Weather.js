@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import Fog from './type/Fog'
 import Rain from './type/Rain'
 import Snow from './type/Snow'

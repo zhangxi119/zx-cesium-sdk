@@ -1,7 +1,7 @@
 # DC-SDK
 
 <p>
-<img src="https://img.shields.io/github/actions/workflow/status/dvgis/dc-sdk/build.yml"/>
+<img src="https://img.shields.io/github/actions/workflow/status/zhangxi119/zx-cesium-sdk/build.yml"/>
 <img src="https://img.shields.io/badge/license-Apache%202-blue"/>
 <a href="https://www.npmjs.com/package/@dvgis/dc-sdk" target="_blank">
  <img src="https://img.shields.io/npm/v/@dvgis/dc-sdk?color=orange&logo=npm" />
@@ -53,7 +53,7 @@ import '@dvgis/dc-sdk/dist/dc.min.css'
 
 `CDN`
 
-[Resources](https://github.com/dvgis/dc-sdk/releases)
+[Resources](https://github.com/zhangxi119/zx-cesium-sdk/releases)
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@dvgis/dc-sdk/dist/dc.min.js"></script>
@@ -176,27 +176,5 @@ DC.ready({}).then(()=>{
 |        ![picture](http://dc.dvgis.cn/examples/previews/overlay/polyline/image_trail.gif)         | ![picture](http://dc.dvgis.cn/examples/previews/overlay/others/wall_trail.gif) |       ![picture](http://dc.dvgis.cn/examples/previews/overlay/primitive/water.gif)       |      ![picture](http://dc.dvgis.cn/examples/previews/scene-ext/tools/plot.png)       |
 
 [More>>](http://dc.dvgis.cn/#/examples)
-
-## Copyright
-
-```warning
-1. The framework is a basic platform, completely open source, which can be modified and reconstructed by any individual or institution without our authorization.
-2. We are not responsible for any problems arising from the modification of the framework by individuals and organizations.
-3. Some industrial plug-ins and tools will be added in the later stage, and the code will be open source appropriately.
-4. The package released by us may be used permanently and free of charge by any person or organization subject to:
-  1) complete package reference;
-  2) reserve this copyright information in the console output
-We reserve the right of final interpretation of this copyright information.
-```
-
-## Support
-
-> if dc-sdk can bring benefits to you, please support it ~
-
-<p>
-<a href="https://www.paypal.com/paypalme/cavencj" target="_blank">
-<img src="https://www.paypalobjects.com/images/shared/paypal-logo-129x32.svg" style="margin-top:10px" />
-</a>
-</p>
 
 ## Thanks

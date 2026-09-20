@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 // material
 
 export * from './type/thirdpart'

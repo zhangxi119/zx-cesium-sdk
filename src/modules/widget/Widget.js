@@ -1,9 +1,3 @@
-/**
- * @Author : Caven Chen
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 18:40:00
- */
-
 import State from '../state/State'
 import WidgetType from './WidgetType'
 

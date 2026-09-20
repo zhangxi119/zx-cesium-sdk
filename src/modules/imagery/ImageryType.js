@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 let ImageryType = {
   ARCGIS: 'arcgis',
   BING: 'bing',

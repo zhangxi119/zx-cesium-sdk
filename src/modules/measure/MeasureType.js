@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const MeasureType = {
   ANGLE: 'angle',
   AREA: 'area',

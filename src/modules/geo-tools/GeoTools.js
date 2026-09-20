@@ -1,8 +1,3 @@
-
-/**
- * @Author : Caven Chen
- */
-
 import Parse from '../parse/Parse'
 import { getLib } from '../../global-api/index.js'
 

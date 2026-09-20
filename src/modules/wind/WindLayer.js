@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../libs'
 import { Layer } from '../layer'
 import State from '../state/State'

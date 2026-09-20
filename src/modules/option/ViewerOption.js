@@ -1,10 +1,3 @@
-/**
- * @Author: Caven
- * @Date: 2019-12-30 09:24:37
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 17:40:00
- */
-
 import { Cesium } from '../../libs'
 import { Util } from '../utils'
 

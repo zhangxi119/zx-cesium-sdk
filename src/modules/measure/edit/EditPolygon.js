@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import { PlotEventType } from '../../event'
 import { midCartesian } from '../../math'

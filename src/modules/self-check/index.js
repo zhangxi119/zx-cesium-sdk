@@ -1,9 +1,3 @@
-/**
- * @Author : zhangxi119
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-20 23:10:00
- */
-
 import PolylineDashAAMaterialProperty from '../material/property/polyline/PolylineDashAAMaterialProperty'
 
 /**

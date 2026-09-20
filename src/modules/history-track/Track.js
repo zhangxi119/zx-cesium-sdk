@@ -1,9 +1,3 @@
-/**
- * @Author : Caven Chen
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 19:30:00
- */
-
 import { Cesium } from '../../libs'
 import { TrackEvent, TrackEventType } from '../event'
 import State from '../state/State'

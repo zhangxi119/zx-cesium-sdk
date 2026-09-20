@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { PlotEventType } from '../../event'
 
 class Draw {

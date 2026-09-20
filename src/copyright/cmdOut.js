@@ -1,13 +1,8 @@
-/**
- * @Author : zhangxi
- */
-
 // eslint-disable-next-line no-console
 console.log(
   `%c \n cesium-sdk \n  %c \n
     版本: {{__VERSION__}} - {{__TIME__}}
     Cesium 版本：{{__CESIUM_VERSION__}}
-    开发作者: {{__AUTHOR__}}
     网站主页: {{__HOME_PAGE__}}
     github: {{__REPOSITORY__}}
     `,

@@ -1,8 +1,4 @@
 /**
- * @Author : Caven Chen
- */
-
-/**
  * Some of the code borrows from MAPV
  * https://github.com/huiyan-fe/mapv/blob/3292c7c25dbbf29af3cf7b3acb48108d60b3eed8/src/utils/curve.js
  */

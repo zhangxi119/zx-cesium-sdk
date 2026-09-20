@@ -1,10 +1,4 @@
 /**
- * @Author : zhangxi119
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-20 22:30:00
- */
-
-/**
  * 节流工具
  *
  * ## 为什么库层需要它

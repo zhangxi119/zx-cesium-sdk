@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../libs'
 import ImageryType from './ImageryType'
 import AMapImageryProvider from './provider/AMapImageryProvider.js'

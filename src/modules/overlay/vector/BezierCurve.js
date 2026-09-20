@@ -1,8 +1,6 @@
 /**
  * BezierCurve - 贝塞尔曲线覆盖物
- * @Author : zishang520
  */
-
 import { Cesium } from '../../../libs'
 import Overlay from '../Overlay'
 import Parse from '../../parse/Parse'

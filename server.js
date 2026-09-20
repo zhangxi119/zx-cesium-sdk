@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import express from 'express'
 import portfinder from 'portfinder'
 import fse from 'fs-extra'

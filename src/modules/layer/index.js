@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 export { default as LayerType } from './LayerType'
 export { default as Layer } from './Layer'
 export { default as LayerGroup } from './LayerGroup'

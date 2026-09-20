@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import Parse from '../../parse/Parse'
 import { Transform } from '../../transform'

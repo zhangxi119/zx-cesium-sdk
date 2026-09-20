@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 class WindCanvas {
   constructor(ctx) {
     this.options = {}

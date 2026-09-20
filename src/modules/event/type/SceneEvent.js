@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { SceneEventType } from '../EventType'
 import Event from '../Event'
 

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Util } from '../utils'
 import State from '../state/State'
 import { LayerGroupEventType, LayerGroupEvent } from '../event'

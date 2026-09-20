@@ -1,8 +1,3 @@
-/**
- * @Author: Caven
- * @Date: 2021-05-01 17:38:47
- */
-
 const __indexOf =
   [].indexOf ||
   function (item) {

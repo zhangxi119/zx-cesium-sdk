@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import DrawTool from './DrawTool'
 import EditTool from './EditTool'
 

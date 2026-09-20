@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 export default function parabola(
   startPosition,
   endPosition,

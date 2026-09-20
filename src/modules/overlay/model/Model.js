@@ -1,9 +1,3 @@
-/**
- * @Author : Caven Chen
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-19 19:20:00
- */
-
 import { Cesium } from '../../../libs'
 import Overlay from '../Overlay'
 import Parse from '../../parse/Parse'

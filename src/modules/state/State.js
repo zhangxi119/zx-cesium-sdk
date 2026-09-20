@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const State = {
   INITIALIZED: 'initialized',
   ADDED: 'added',

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../libs'
 import { SceneEventType, TrackEventType } from '../event'
 import State from '../state/State'

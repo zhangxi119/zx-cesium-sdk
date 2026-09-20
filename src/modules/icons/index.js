@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import logo from './logo'
 import compass_outer from './compass-outer'
 import compass_inner from './compass-inner'

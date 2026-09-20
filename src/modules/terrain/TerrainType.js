@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 let TerrainType = {
   NONE: 'none',
   XYZ: 'xyz',

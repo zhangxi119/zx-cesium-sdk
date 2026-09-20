@@ -1,6 +1,3 @@
-/**
- * @Author : Caven Chen
- */
 import { TileSetEventType } from '../EventType'
 import Event from '../Event'
 

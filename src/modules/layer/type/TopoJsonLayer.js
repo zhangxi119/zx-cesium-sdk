@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import State from '../../state/State'
 import GeoJsonLayer from './GeoJsonLayer'
 import Layer from '../Layer'

@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import { heading } from '../../math'
 import DrawPolyline from '../draw/DrawPolyline'

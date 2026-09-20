@@ -1,6 +1,3 @@
-/**
- * @Author : Caven Chen
- */
 import { ModelEventType } from '../EventType'
 import Event from '../Event'
 

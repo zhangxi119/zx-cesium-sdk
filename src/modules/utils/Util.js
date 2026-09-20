@@ -1,11 +1,4 @@
 /**
- * @Author: Caven
- * @Date: 2019-12-31 17:58:01
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-09-20 15:40:00
- */
-
-/**
  * uuid 自增序号（配合随机后缀，兼顾唯一性与性能）
  */
 let uuidSeed = 0

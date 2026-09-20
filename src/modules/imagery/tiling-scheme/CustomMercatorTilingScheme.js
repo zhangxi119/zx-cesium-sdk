@@ -1,8 +1,3 @@
-/**
- * @Author: Caven
- * @Date: 2024-04-06 20:40:25
- */
-
 import { Cesium } from '../../../libs'
 
 class CustomMercatorTilingScheme extends Cesium.WebMercatorTilingScheme {

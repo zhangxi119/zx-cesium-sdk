@@ -1,6 +1,3 @@
-/**
- @Author: Caven Chen
- **/
 import { setParam } from './global-api'
 
 const DEF_BASE_URL = './libs/dc-sdk/resources/'

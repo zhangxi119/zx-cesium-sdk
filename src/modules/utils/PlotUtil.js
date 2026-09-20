@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const TWO_PI = Math.PI * 2
 const FITTING_COUNT = 100
 const ZERO_TOLERANCE = 0.0001

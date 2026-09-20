@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const EARTH_RADIUS = 6370996.81
 const MC_BAND = [12890594.86, 8362377.87, 5591021, 3481989.83, 1678043.12, 0]
 const LL_BAND = [75, 60, 45, 30, 15, 0]

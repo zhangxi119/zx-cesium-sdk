@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const splitter = `
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg width="19px" height="28px" viewBox="0 0 19 28" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">

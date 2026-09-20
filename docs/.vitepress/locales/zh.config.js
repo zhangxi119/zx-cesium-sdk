@@ -10,7 +10,6 @@ export default {
         items: [
           { text: '快速上手', link: '/zh/guide/get-start' },
           { text: '架构图', link: '/zh/guide/framework-chart' },
-          { text: 'v2.x', link: 'https://resource.dvgis.cn/dc-api/v2.x/zh/' },
           { text: 'Cesium', link: 'https://github.com/CesiumGS/cesium/' },
         ],
       },
@@ -40,7 +39,6 @@ export default {
           },
         ],
       },
-      { text: '赞助', link: '/zh/donation/' },
     ],
     sidebar: {
       '/zh/guide/': [

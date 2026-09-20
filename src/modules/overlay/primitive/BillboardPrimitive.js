@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import Overlay from '../Overlay'
 import Parse from '../../parse/Parse'
 import State from '../../state/State'

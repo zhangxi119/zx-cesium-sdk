@@ -1,8 +1,6 @@
 /**
  * EditBezierCurve - 编辑贝塞尔曲线工具
- * @Author : zishang520
  */
-
 import { Cesium } from '../../../libs'
 import Edit from './Edit'
 import { PlotEventType } from '../../event'

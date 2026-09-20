@@ -1,9 +1,3 @@
-/**
- * @Author : Caven Chen
- * @Last Modified By : zhangxi119
- * @Last Modified Time : 2026-06-26 14:50:00
- */
-
 export { default as OverlayType } from './OverlayType'
 export { default as Overlay } from './Overlay'
 

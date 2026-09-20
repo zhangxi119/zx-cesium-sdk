@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../../libs'
 import CylinderFadeMaterial from '../shader/cylinder/CylinderFadeMaterial.glsl'
 import CylinderParticlesMaterial from '../shader/cylinder/CylinderParticlesMaterial.glsl'

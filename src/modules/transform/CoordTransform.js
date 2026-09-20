@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 const BD_FACTOR = (3.14159265358979324 * 3000.0) / 180.0
 const PI = 3.1415926535897932384626
 const RADIUS = 6378245.0

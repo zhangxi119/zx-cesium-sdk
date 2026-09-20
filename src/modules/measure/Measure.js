@@ -1,7 +1,3 @@
-/**
- * @Author : Caven Chen
- */
-
 import { Cesium } from '../../libs'
 import Angle from './type/Angle'
 import Area from './type/Area'
