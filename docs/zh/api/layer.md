@@ -13,6 +13,10 @@
 ### properties
 
 - `{String} id`：唯一标识 **_`readonly`_**
+- `{String} layerId`：图层内部唯一标识 **_`readonly`_**
+- `{Object} delegate`：图层代理对象 **_`readonly`_**
+- `{Viewer|World} viewer`：图层所属场景 **_`readonly`_**
+- `{LayerEvent} layerEvent`：图层事件 **_`readonly`_**
 - `{Boolean} show`：是否显示
 - `{Object} attr`：业务属性
 - `{String} state`：图层状态 **_`readonly`_**
@@ -52,12 +56,12 @@
     - `{String} overlayId`：覆盖物唯一标识(默认产生)
   - 返回值 `overlay`
 
-- **_getOverlayById(Id)_**
+- **_getOverlayById(id)_**
 
   根据业务 Id 获取覆盖物`(推荐用)`
 
   - 参数
-    - `{String} Id`：覆盖物业务唯一标识
+    - `{String} id`：覆盖物业务唯一标识
   - 返回值 `overlay`
 
 - **_getOverlaysByAttr(attrName, attrVal)_**
@@ -103,8 +107,6 @@
 
   删除图层
 
-  - 返回值 `this`
-
 - **_addTo(viewer)_**
 
   添加图层到场景
@@ -112,6 +114,13 @@
   - 参数
     - `{Viewer|World} viewer`：场景
   - 返回值 `this`
+
+- **_setStyle(style)_**
+
+  设置图层样式，作用于该图层内所有覆盖物
+
+  - 参数
+    - `{Object} style`：样式
 
 - **_on(type, callback, context)_**
 
@@ -151,10 +160,12 @@
   - 参数
     - `{String} type`：图层类型
 
-- **_getLayerType()_**
+- **_getLayerType(type)_**
 
   获取图层类型
 
+  - 参数
+    - `{String} type`：图层类型
   - 返回值 `string`
 
 ## DC.LayerGroup
@@ -185,6 +196,8 @@ layerGroup.addLayer(layer)
 - `{String} id`：唯一标识 **_`readonly`_**
 - `{Boolean} show`：是否显示
 - `{String} type`：图层类型 **_`readonly`_**
+- `{String} state`：图层状态 **_`readonly`_**
+- `{LayerGroupEvent} layerGroupEvent`：图层组事件 **_`readonly`_**
 
 ### methods
 
@@ -216,7 +229,7 @@ layerGroup.addLayer(layer)
 
   获取所有图层，不包括地图
 
-  - 返回值 `layer`
+  - 返回值 `array`
 
 - **_remove()_**
 
@@ -295,6 +308,14 @@ viewer.addLayer(layer)
     - `{String} id`：图层唯一标识
   - 返回值 `primitiveLayer`
 
+### properties
+
+- `{PointPrimitiveCollection} points`：点图元集合 **_`readonly`_**
+- `{LabelCollection} labels`：标签集合 **_`readonly`_**
+- `{BillboardCollection} billboards`：广告牌集合 **_`readonly`_**
+- `{PolylineCollection} polylines`：线集合 **_`readonly`_**
+- `{CloudCollection} clouds`：云集合 **_`readonly`_**
+
 ## DC.GroundPrimitiveLayer
 
 > 贴地图元图层，用于添加各类贴地图元数据，将贴地图元数据按一定的逻辑分组，方便统一管理，继承于[Layer](#dc-layer)
@@ -336,6 +357,57 @@ viewer.addLayer(layer)
   - 参数
     - `{String} id`：图层唯一标识
   - 返回值 `tilesetLayer`
+
+## DC.RasterTileLayer
+
+> 影像瓦片图层，用于加载各类影像服务，继承于[Layer](#dc-layer)
+
+### example
+
+```js
+let layer = new DC.RasterTileLayer(
+  'layer',
+  DC.ImageryLayerFactory.createImageryLayer(DC.ImageryType.WMS, {
+    url: '**/**.wms?',
+  })
+)
+viewer.addLayer(layer)
+```
+
+### creation
+
+- **_constructor(id,provider,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String} id`：图层唯一标识
+    - `{Object} provider`：影像提供者，可为 Promise
+    - `{Object} options`：属性配置，[详细使用说明](http://resource.dvgis.cn/cesium-docs/ImageryLayer.html)
+  - 返回值 `rasterTileLayer`
+
+## DC.I3SLayer
+
+> I3S 图层，用于添加各类 I3S 数据，继承于[Layer](#dc-layer)
+
+### example
+
+```js
+let layer = new DC.I3SLayer('layer')
+viewer.addLayer(layer)
+let i3s = new DC.I3S('**/**.json')
+layer.addOverlay(i3s)
+```
+
+### creation
+
+- **_constructor(id)_**
+
+  构造函数
+
+  - 参数
+    - `{String} id`：图层唯一标识
+  - 返回值 `i3sLayer`
 
 ## DC.GeoJsonLayer
 
@@ -395,12 +467,12 @@ layer.eachOverlay((item) => {
 
 ## DC.TopoJsonLayer
 
-> TopoJson 图层，用于加载 TopoJson 格式数据，继承于[Layer](#dc-layer)，
+> TopoJson 图层，用于加载 TopoJson 格式数据，继承于[GeoJsonLayer](#dc-geojsonlayer)，
 
 ### example
 
 ```js
-let layer = new DC.GeoJsonLayer('id', '**/**.geojson')
+let layer = new DC.TopoJsonLayer('id', '**/**.geojson')
 layer.eachOverlay((item) => {
   // item 为一个entity,
   if (item.polyline) {
@@ -558,6 +630,106 @@ let layer = new DC.GpxLayer('id', '**/**.gpx')
     - `{Object} options`：属性配置，[详细使用说明](http://resource.dvgis.cn/cesium-docs/GpxDataSource.html)
   - 返回值 `gpxLayer`
 
+## DC.FeatureGridLayer
+
+> 要素网格图层，按网格瓦片请求要素数据并渲染为矢量覆盖物，继承于[Layer](#dc-layer)
+
+### example
+
+```js
+let layer = new DC.FeatureGridLayer('id', '**/**.json', {
+  count: 10,
+  callback: (item) => {
+    return new DC.Point(item.position)
+  },
+})
+viewer.addLayer(layer)
+```
+
+### creation
+
+- **_constructor(id,url,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String} id`：图层唯一标识
+    - `{String} url`：数据地址
+    - `{Object} options`：属性配置
+  - 返回值 `featureGridLayer`
+
+```js
+// options(属性可选)
+const options = {
+  "name": "",//名称
+  "count": 10,//瓦片请求的要素数量
+  "maximumLevel": 21,//最大层级
+  "dataProperty": "",//数据字段，设置后从返回结果中取该字段作为要素数组
+  "callback": (item) => {
+    return null
+  }//数据回调，返回覆盖物
+}
+```
+
+### properties
+
+- `{String} url`：数据地址 **_`readonly`_**
+- `{String} token`：访问令牌 **_`readonly`_**
+- `{Number} tileWidth`：瓦片宽度 **_`readonly`_**
+- `{Number} tileHeight`：瓦片高度 **_`readonly`_**
+- `{Number} maximumLevel`：最大层级 **_`readonly`_**
+- `{Number} minimumLevel`：最小层级 **_`readonly`_**
+- `{Object} tilingScheme`：瓦片切片模式 **_`readonly`_**
+- `{Object} rectangle`：瓦片矩形范围 **_`readonly`_**
+- `{Boolean} ready`：是否就绪 **_`readonly`_**
+- `{Object} credit`：版权信息 **_`readonly`_**
+- `{Boolean} hasAlphaChannel`：是否包含透明通道 **_`readonly`_**
+
+### methods
+
+- **_getTileCredits(x, y, level)_**
+
+  获取瓦片版权信息
+
+  - 参数
+    - `{Number} x`：瓦片横坐标
+    - `{Number} y`：瓦片纵坐标
+    - `{Number} level`：瓦片层级
+  - 返回值 `undefined`
+
+- **_requestImage(x, y, level, request)_**
+
+  请求瓦片影像
+
+  - 参数
+    - `{Number} x`：瓦片横坐标
+    - `{Number} y`：瓦片纵坐标
+    - `{Number} level`：瓦片层级
+    - `{Object} request`：请求对象
+  - 返回值 `canvas`
+
+## DC.LabelLayer
+
+> 标签图层，用于加载 GeoJson 数据并转换为标签，继承于[Layer](#dc-layer)
+
+### example
+
+```js
+let layer = new DC.LabelLayer('id', '**/**.geojson')
+viewer.addLayer(layer)
+```
+
+### creation
+
+- **_constructor(id,[url])_**
+
+  构造函数
+
+  - 参数
+    - `{String} id`：图层唯一标识
+    - `{String} url`：数据地址，默认为 ''
+  - 返回值 `labelLayer`
+
 ## DC.ClusterLayer
 
 > 聚合图层，继承于[Layer](#dc-layer)
@@ -594,6 +766,7 @@ const options = {
     "0.1": DC.Color.RED
   },//幅度颜色设置
   "gradientImages": {},//幅度图片设置，仅当style为custom有效
+  "showCount": true,//是否显示聚合数量
   "clusterSize": 16, //集合图标尺寸
   "fontSize": 12,// 字体大小
   "fontColor": DC.Color.BLACK, //字体颜色
@@ -626,7 +799,7 @@ viewer.addLayer(layer)
 
 ### creation
 
-- **_constructor(id,bounds,[options])_**
+- **_constructor(id,[options])_**
 
   构造函数
 
@@ -719,11 +892,45 @@ const options = {
 
 - **_setOptions(options)_**
 
-  设置风向数据
+  设置配置信息
 
   - 参数
     - `{Object} options`：配置信息，参考构造函数的配置信息
   - 返回值 `windLayer`
+
+## DC.GraticuleLayer
+
+> 经纬网图层，用于展示经线与纬线，继承于[Layer](#dc-layer)
+
+### example
+
+```js
+let layer = new DC.GraticuleLayer('layer')
+viewer.addLayer(layer)
+```
+
+### creation
+
+- **_constructor(id,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String} id`：图层唯一标识
+    - `{Object} options`：属性配置
+  - 返回值 `graticuleLayer`
+
+```js
+// options(属性可选)
+const options = {
+  "radialColor": DC.Color.WHITE,//经线颜色
+  "radialWidth": 2,//经线宽度
+  "showRadial": true,//是否显示经线
+  "LabelColor": DC.Color.YELLOW,//经线标注颜色
+  "weftColor": DC.Color.WHITE,//纬线颜色
+  "weftWidth": 2//纬线宽度
+}
+```
 
 ## DC.ChartLayer
 
@@ -742,7 +949,7 @@ viewer.addLayer(chartLayer)
 
 ### creation
 
-- **_constructor([id],[option])_**
+- **_constructor(id,[option])_**
 
   构造函数
 
@@ -768,8 +975,14 @@ const options = {
 
 - **_setOption(option)_**
 
-  设置点位
+  设置图表配置
 
   - 参数
     - `{Object} option`：echarts 配置，[详细使用说明](https://www.echartsjs.com/zh/option.html#title)
+  - 返回值 `this`
+
+- **_resize()_**
+
+  重置图表大小
+
   - 返回值 `this`

@@ -24,7 +24,7 @@ let weather = new DC.Weather(viewer)
 
 - [`{Rain} rain`](#rain)：雨天 **_`readonly`_**
 - [`{Snow} snow`](#snow)：雪天 **_`readonly`_**
-- [`{Fog} snow`](#fog)：雾天 **_`readonly`_**
+- [`{Fog} fog`](#fog)：雾天 **_`readonly`_**
 - [`{Cloud} cloud`](#cloud)：云 **_`readonly`_**
 
 ## Rain
@@ -42,6 +42,8 @@ weather.rain.speed = 2
 
 - `{Boolean} enable`：是否启用
 - `{Number} speed`：速度
+- `{Number} mixNum`：混合比例
+- `{String} type`：天气类型 **_`readonly`_**
 
 ## Snow
 
@@ -58,6 +60,7 @@ weather.snow.speed = 2
 
 - `{Boolean} enable`：是否启用
 - `{Number} speed`：速度
+- `{String} type`：天气类型 **_`readonly`_**
 
 ## Fog
 
@@ -67,14 +70,15 @@ weather.snow.speed = 2
 
 ```js
 weather.fog.enable = true
-weather.fog.fogColor = DC.Color.BLACK
+weather.fog.color = DC.Color.BLACK
 ```
 
 ### properties
 
 - `{Boolean} enable`：是否启用
-- `{Color} fogColor`：颜色，
+- `{Color} color`：颜色，
 - `{Object} fogByDistance`：距离可见，默认： `{ near: 10, nearValue: 0, far: 2000, farValue: 1.0 }`
+- `{String} type`：天气类型 **_`readonly`_**
 
 ## Cloud
 
@@ -91,6 +95,7 @@ weather.cloud.rotateAmount = 0.02
 
 - `{Boolean} enable`：是否启用
 - `{Number} rotateAmount`：移动增量，可为负数
+- `{String} type`：天气类型 **_`readonly`_**
 
 ## DC.Effect
 
@@ -119,8 +124,9 @@ let effect = new DC.Effect(viewer)
 - [`{Brightness} brightness`](#brightness)：明亮 **_`readonly`_**
 - [`{DepthOfField} depthOfField`](#depthoffield)：景深 **_`readonly`_**
 - [`{LensFlare} lensFlare`](#lensflare)：镜头耀斑 **_`readonly`_**
-- [`{Night} night`](#night)：夜视 **_`readonly`_**
+- [`{NightVision} night`](#nightvision)：夜视 **_`readonly`_**
 - [`{Silhouette} silhouette`](#silhouette)：描边 **_`readonly`_**
+- [`{SkyLine} skyLine`](#skyline)：天际线 **_`readonly`_**
 
 ## BlackAndWhite
 
@@ -137,6 +143,7 @@ effect.blackAndWhite.enable = true
 - `{Boolean} enable`：是否启用
 - `{Number} gradations`：强度
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## Bloom
 
@@ -153,11 +160,12 @@ effect.bloom.enable = true
 - `{Boolean} enable`：是否启用
 - `{Number} contrast`：对比度
 - `{Number} brightness`：亮度
-- `{Number} glowOnly`：只发光
+- `{Boolean} glowOnly`：只发光
 - `{Number} delta`：Delta
 - `{Number} sigma`：Sigma
 - `{Number} stepSize`：StepSize
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## Brightness
 
@@ -174,6 +182,7 @@ effect.brightness.enable = true
 - `{Boolean} enable`：是否启用
 - `{Number} intensity`：强度
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## DepthOfField
 
@@ -188,11 +197,12 @@ effect.depthOfField.enable = true
 ### properties
 
 - `{Boolean} enable`：是否启用
-- `{Number}} focalDistance`：焦距
+- `{Number} focalDistance`：焦距
 - `{Number} delta`：Delta
 - `{Number} sigma`：Sigma
 - `{Number} stepSize`：StepSize
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## LensFlare
 
@@ -207,13 +217,14 @@ effect.lensFlare.enable = true
 ### properties
 
 - `{Boolean} enable`：是否启用
-- `{Number}} intensity`：强度
+- `{Number} intensity`：强度
 - `{Number} distortion`：扭曲度
 - `{Number} dirtAmount`：分散度
 - `{Number} haloWidth`：光圈宽度
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
-## Night
+## NightVision
 
 > 夜视效果
 
@@ -227,6 +238,7 @@ effect.night.enable = true
 
 - `{Boolean} enable`：是否启用
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## Silhouette
 
@@ -244,10 +256,28 @@ effect.silhouette.enable = true
 - `{Color} color`：颜色
 - `{Number} length`：长度
 - `{Array} selected`：设置后期作用的覆盖物
+- `{String} type`：效果类型 **_`readonly`_**
+
+## SkyLine
+
+> 天际线效果
+
+### example
+
+```js
+effect.skyLine.enable = true
+```
+
+### properties
+
+- `{Boolean} enable`：是否启用
+- `{Number} depthThreshold`：深度阈值
+- `{Color} color`：颜色
+- `{String} type`：效果类型 **_`readonly`_**
 
 ## DC.CircleScan
 
-> 扫描圈，继承于[Animation](#animation)
+> 扫描圈，继承于[Animation](./effect-animation#animation)
 
 ### example
 
@@ -277,9 +307,27 @@ const options = {
 }
 ```
 
+### properties
+
+- `{String} type`：动画类型 **_`readonly`_**
+
+### methods
+
+- **_start()_**
+
+  开始动画
+
+  - 返回值 `this`
+
+- **_stop()_**
+
+  停止动画
+
+  - 返回值 `this`
+
 ## DC.RadarScan
 
-> 雷达扫描，继承于[Animation](#animation)
+> 雷达扫描，继承于[Animation](./effect-animation#animation)
 
 ### example
 
@@ -308,3 +356,21 @@ const options = {
   "speed": 5// 速度
 }
 ```
+
+### properties
+
+- `{String} type`：动画类型 **_`readonly`_**
+
+### methods
+
+- **_start()_**
+
+  开始动画
+
+  - 返回值 `this`
+
+- **_stop()_**
+
+  停止动画
+
+  - 返回值 `this`

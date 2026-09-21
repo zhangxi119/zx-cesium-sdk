@@ -352,12 +352,13 @@ let trailLinePrimitive = new DC.TrailLinePrimitive('120,20;120,30;122,30')
 
 ### creation
 
-- **_constructor(positions,[asynchronous])_**
+- **_constructor(positions,[width])_**
 
   构造函数
 
   - 参数
     - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+    - `{Number} width`：线宽，默认为 1
   - 返回值 `trailLine`
 
 ### properties
@@ -394,12 +395,13 @@ let flowLinePrimitive = new DC.FlowLinePrimitive('120,20;120,30;122,30')
 
 ### creation
 
-- **_constructor(positions,[asynchronous])_**
+- **_constructor(positions,[width])_**
 
   构造函数
 
   - 参数
     - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+    - `{Number} width`：线宽，默认为 1
   - 返回值 `flowLine`
 
 ### properties
@@ -452,39 +454,8 @@ let model = new DC.ModelPrimitive(position, '**/**.glb')
 
 - `{Position|Number|String|Object} position`：坐标
 - `{String} modelUrl`：模型地址
-- `{Promise} readyPromise`：加载完成后的异步函数 **_`readonly`_**
 
 ### methods
-
-- **_getMaterial(name)_**
-
-  设置材质
-
-  - 参数
-    - `{String} name`：节点名称
-  - 返回值 `modelMaterial`
-
-- **_getMesh(name)_**
-
-  获取三角网
-
-  - 参数
-    - `{String} name`：节点名称
-  - 返回值 `modelMesh`
-
-- **_getNode(name)_**
-
-  获取节点
-
-  - 参数
-    - `{String} name`：节点名称
-  - 返回值 `modelNode`
-
-- **_getNodes()_**
-
-  获取所有节点
-
-  - 返回值 `array<ModelNode>`
 
 - **_setStyle(style)_**
 
@@ -578,18 +549,18 @@ let elecEllipsoid = new DC.ElecEllipsoidPrimitive('120,20', {
 
 ### creation
 
-- **_constructor(center,radius)_**
+- **_constructor(position,radius)_**
 
   构造函数
 
   - 参数
-    - `{Position|Number|String|Object} center`：球心
+    - `{Position|Number|String|Object} position`：坐标
     - `{Object} radius`:球半径
   - 返回值 `elecEllipsoid`
 
 ### properties
 
-- `{Position|Number|String|Object} center`：球心
+- `{Position|Number|String|Object} position`：坐标
 - `{Object} radius`:球半径
 
 ### methods
@@ -623,12 +594,12 @@ let cylinder = new DC.LightCylinderPrimitive(position, 1000, 1, 100)
 
 ### creation
 
-- **_constructor(position, length, topRadius, bottomRadius)_**
+- **_constructor(center, length, topRadius, bottomRadius)_**
 
   构造函数
 
   - 参数
-    - `{Position|Number|String|Object} position`：坐标
+    - `{Position|Number|String|Object} center`：圆心
     - `{Number} length`：长度
     - `{Number} topRadius`：上半径
     - `{Number} bottomRadius`：下半径
@@ -636,7 +607,7 @@ let cylinder = new DC.LightCylinderPrimitive(position, 1000, 1, 100)
 
 ### properties
 
-- `{Position} position`：坐标
+- `{Position} center`：圆心
 - `{Number} length`：长度
 - `{Number} topRadius`：上半径
 - `{Number} bottomRadius`：下半径
@@ -699,6 +670,58 @@ let scanCirclePrimitive = new DC.ScanCirclePrimitive('120,20', 1000)
 const style = {
   "speed": 5, //速度
   "color": DC.Color.WHITE //颜色
+}
+```
+
+## DC.CloudPrimitive
+
+> 云图元，继承于[Overlay](./overlay-vector#dc-overlay)
+
+### example
+
+```js
+let position = new DC.Position(120, 20)
+let cloud = new DC.CloudPrimitive(position)
+cloud.setStyle({
+  scale: {
+    x: 25,
+    y: 12,
+  },
+})
+```
+
+### creation
+
+- **_constructor(position)_**
+
+  构造函数
+
+  - 参数
+    - `{Position|Number|String|Object} position`：坐标
+  - 返回值 `cloud`
+
+### properties
+
+- `{Position|Number|String|Object} position`：坐标
+
+### methods
+
+- **_setStyle(style)_**
+
+  设置样式
+
+  - 参数
+    - `{Object} style`：样式，[详细使用说明](http://resource.dvgis.cn/cesium-docs/CloudCollection.html)
+  - 返回值 `this`
+
+```js
+// style（属性可选）
+const style = {
+  "scale": { "x": 25, "y": 12 }, //云广告牌大小，单位：米，默认 12 x 8
+  "maximumSize": { "x": 25, "y": 12, "z": 15 }, //云的最大体积，不设置时根据 scale 推导
+  "slice": 0.36, //云渲染的横截面比例，取值 0 ~ 1，负数时不渲染横截面，默认 -1
+  "brightness": 1.0, //亮度，默认 1.0
+  "color": DC.Color.WHITE //颜色，默认 DC.Color.WHITE
 }
 ```
 
@@ -792,3 +815,24 @@ let videoPrimitive = new DC.VideoPrimitive('120,20;120,30;122,30', videoEl)
 
 - `{String|Array<Position|Number|String|Object>} positions`：坐标串
 - `{Element} video`：视频节点
+
+### methods
+
+- **_setStyle(style)_**
+
+  设置样式
+
+  - 参数
+    - `{Object} style`：样式，[详细使用说明](http://resource.dvgis.cn/cesium-docs/PolygonGraphics.html)
+  - 返回值 `this`
+
+```js
+// style（属性可选）
+const style = {
+  "height": 0, //高度
+  "extrudedHeight": 0, //拉升高度
+  "closeTop": true, //顶面是否闭合
+  "closeBottom": true, //底面是否闭合
+  "classificationType": 2 //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+}
+```

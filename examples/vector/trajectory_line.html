@@ -100,6 +100,27 @@
 
       viewer.flyTo(layer)
 
+      // ===== 动态坐标模式示例（实时轨迹防闪动）=====
+      // 与上方静态轨迹（青色）对比：开启 dynamicPositions 后，追加坐标不再触发
+      // 静态批处理的「图元移除 → 异步重建」，不会出现「每更新一次闪一下」
+      let livePositions = []
+      for (let i = 0; i < 15; i++) {
+        let lng = 120.38105869 + i * 0.01 + Math.sin(i * 0.5) * 0.005
+        let lat = 31.10115627 + 0.02 + i * 0.008 + Math.cos(i * 0.3) * 0.003
+        let alt = 1000 + Math.sin(i * 0.4) * 500
+        livePositions.push(new DC.Position(lng, lat, alt))
+      }
+      let trajectoryDynamic = new DC.TrajectoryLine(livePositions, {
+        showPoints: false,
+        dynamicPositions: true,
+        lineStyle: {
+          color: DC.Color.fromCssColorString('#FF6600'),
+          width: 3,
+          glow: false,
+        },
+      })
+      layer.addOverlay(trajectoryDynamic)
+
       // ===== 动态更新测试按钮 =====
       let btnContainer = document.createElement('div')
       btnContainer.style.cssText =
@@ -236,6 +257,33 @@
         trajectory.positions = newPositions
         console.log('reset positions → 点数:', trajectory.positions.length)
         viewer.flyTo(layer)
+      })
+
+      // 实时追加对比：同时向两条轨迹追加点位（静态青色 vs 动态橙色）
+      // 观察：青色静态轨迹每次追加会闪动一下；橙色动态轨迹连续不闪
+      let liveTimer = null
+      createBtn('start/stop 实时追加对比', function () {
+        if (liveTimer) {
+          clearInterval(liveTimer)
+          liveTimer = null
+          console.log('实时追加：已停止')
+          return
+        }
+        liveTimer = setInterval(function () {
+          let len = trajectory.positions.length
+          let lng = 120.38105869 + len * 0.004 + Math.sin(len * 0.5) * 0.002
+          let lat = 31.10115627 + len * 0.003 + Math.cos(len * 0.3) * 0.0015
+          let alt = 1000 + Math.sin(len * 0.4) * 200
+          trajectory.addPosition(new DC.Position(lng, lat, alt))
+          trajectoryDynamic.addPosition(new DC.Position(lng, lat + 0.02, alt))
+          if (trajectory.positions.length > 30) trajectory.removePositionAt(0)
+          if (trajectoryDynamic.positions.length > 30) {
+            trajectoryDynamic.removePositionAt(0)
+          }
+        }, 500)
+        console.log(
+          '实时追加：已开始（观察青色静态轨迹的闪动 vs 橙色动态轨迹的连续）'
+        )
       })
     </script>
   </body>

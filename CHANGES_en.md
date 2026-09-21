@@ -1,5 +1,57 @@
 # Change Log
 
+### 1.0.10 - 2026-09-21
+
+#### Fix 🐛 (“flashes once on every update” for live trajectories/links)
+
+> Context: the G2 static-geometry work in 1.0.8 turned polyline `positions` into constant arrays
+> (geometry built once per change), but **frequently rewriting a constant property** hits the
+> “primitive removed → asynchronously rebuilt” gap of Cesium’s static batching: every assignment
+> raises the geometry-changed event → `PolylineVisualizer` removes and re-inserts the updater in
+> its static batches → when the line is the **only entity** of its material batch item
+> (`StaticGeometryPerMaterialBatch`), the item is destroyed — the currently displayed Primitive is
+> **removed outright**, while the replacement is created with `show: false, asynchronous: true` and
+> only becomes visible after the Worker finishes building its geometry. The line therefore
+> disappears for a moment on every update. With multiple entities sharing one material item the
+> primitive is kept (the old one stays until the new one is ready), but the whole batched primitive
+> is still rebuilt on every data change.
+
+- **New `dynamicPositions` option (opt-in, off by default, existing behaviour unchanged)**:
+  ```js
+  new DC.TrajectoryLine(positions, { dynamicPositions: true }) // live trajectory
+  new DC.Polyline(positions, { dynamicPositions: true }) // live link
+  ```
+  `positions` is mounted as a `CallbackProperty` (`isConstant === false`), so Cesium takes the
+  `DynamicGeometryUpdater → PolylineCollection` path and **updates the vertex buffer in place**:
+  data changes only refresh the callback result, with no primitive destroy/rebuild window
+  (no flicker). The cost is one O(vertex count) vertex-buffer write per frame for that line.
+  Dynamic mode defaults to `arcType = ArcType.NONE` (skips per-frame geodesic densification;
+  override via `lineStyle.arcType` for `TrajectoryLine` or the `arcType` constructor argument for
+  `Polyline`). Note: with `clampToGround: true` the dynamic path recreates the
+  `GroundPolylinePrimitive` every frame — clamped lines should stay in static mode.
+- **Recommended for**: live drone trajectories (appending points every second), live operator/link
+  lines (reassigned many times per second), etc. Static or low-frequency lines can keep the default.
+
+#### Clarification 📝
+
+- The statement in the 1.0.8 changelog and some source comments — “dynamic geometry =
+  `primitives.removeAndDestroy(primitive)` + `add(new Primitive(...))` every frame (destroying and
+  rebuilding GPU vertex buffers)” — **applies to other geometry types (ellipse, polygon, ...)**;
+  for **polylines**, the dynamic path in current Cesium is a persistent `PolylineCollection` with
+  the vertex buffer **rewritten in place** (`DynamicGeometryUpdater.update` only runs
+  `line.positions = positions.slice()`). The related source comments (`Polyline` / `TrajectoryLine`
+  / `Track`) have been corrected.
+
+#### Verification ✅
+
+- `npm run verify:perf`: **159 + 67 = 226 assertions / 0 failures** (12 new dynamic-mode
+  assertions: property is a `CallbackProperty`, default `arcType = NONE`, property instance
+  unchanged after updates with the callback returning the latest vertex count, `dynamicPositions`
+  getter state).
+- Examples: `trajectory_line.html` gained a “start/stop live-append comparison” button (static
+  cyan flickers vs dynamic orange stays smooth); `polyline_base.html` gained a 10 Hz live-link
+  sample.
+
 ### 1.0.8 - 2026-09-19
 
 #### Line antialiasing 🪄 (fixes "severe polyline jaggedness")
@@ -43,6 +95,7 @@
   **3-tap box filter** at half-pixel spacing to obtain the solid coverage, then blends by it.
   It also fixes RGB dilution of the solid colour by a transparent gap under
   **non-premultiplied alpha** (which otherwise darkens the antialiased transition band).
+
   - New export: `PolylineDashAAMaterialProperty`
   - **`PolylineDashMaterialProperty` now resolves to this implementation** (it extends Cesium's
     class, so constructor options, values and `instanceof` are all equivalent) —
@@ -57,6 +110,7 @@
 #### Performance ⚡ (deep optimization, see `ms-fe-cacs/docs/DC_LIB_PERF_PLAN.md` in the app repo)
 
 **Rendering defaults**
+
 - **`sunBloom` disabled by default**: Cesium defaults `scene.sunBloom = true`, which runs
   2 full-resolution bloom passes every frame. It is now turned off in the `ViewerOption`
   constructor; enable it via `setOptions({ showSunBloom: true })` when needed.
@@ -127,38 +181,45 @@
   (previously every viewer got an extra handler duplicating mouse event dispatch).
 
 #### Features ✨
+
 - `Viewer` accepts `widgets` / `tools` allow-lists to skip unused widgets:
   ```js
   new DC.Viewer('container', {
     widgets: ['popup', 'tooltip'],
-    tools: ['drawTool', 'editTool']
+    tools: ['drawTool', 'editTool'],
   })
   ```
   The full set is still installed when the options are omitted.
 
 #### Tests ✅
+
 - Added `npm run verify:perf`: a jsdom-based runtime correctness suite
   (83 assertions covering all of the above).
 
 ### 4.2.0 - 2025-02-09
 
 #### Breaking Changes 📣
+
 - Upgrade @cesium/engine to version 13.1.0
 
 #### Fixes 🔧
+
 - remove the config context
 
 ### 4.1.1 - 2025-01-05
 
 #### Breaking Changes 📣
+
 - Emergency release to add analytics module
 
 ### 4.1.0 - 2025-01-05
 
 #### Breaking Changes 📣
+
 - Upgrade @cesium/engine to version 13.0.0
 
 #### Fixes 🔧
+
 - Fix map configuration not working
 - Fix the wave circle animation
 

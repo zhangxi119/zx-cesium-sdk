@@ -59,7 +59,7 @@ const options = {
 
 ```js
  viewer.addBaseLayer(DC.ImageryLayerFactory.createCoordImageryLayer({
-  tilingScheme: new DC.CustomGeographicTilingScheme(
+  tilingScheme: new DC.CustomMercatorTilingScheme(
     {
       origin: [-20037508.3427892, 20037508.3427892],
       resolutions: [
@@ -133,6 +133,14 @@ viewer.addBaseLayer(baseLayer, {
     - `{Object} options`：属性
   - 返回值 `Promise<baseLayer>`
 
+- **_createGeoVisImageryLayer(options)_**
+
+  创建星图地图
+
+  - 参数
+    - `{Object} options`：属性
+  - 返回值 `Promise<baseLayer>`
+
 - **_createGoogleImageryLayer(options)_**
 
   创建谷歌地图
@@ -164,6 +172,22 @@ viewer.addBaseLayer(baseLayer, {
   - 参数
     - `{Object} options`
       ：属性，详情参考 [ArcGis](http://resource.dvgis.cn/cesium-docs/ArcGisMapServerImageryProvider.html#.ConstructorOptions)
+  - 返回值 `Promise<baseLayer>`
+
+- **_createBingImageryLayer(options)_**
+
+  创建 Bing 地图
+
+  - 参数
+    - `{Object} options`：属性
+  - 返回值 `Promise<baseLayer>`
+
+- **_createOSMImageryLayer(options)_**
+
+  创建 OpenStreetMap 地图
+
+  - 参数
+    - `{Object} options`：属性
   - 返回值 `Promise<baseLayer>`
 
 - **_createSingleTileImageryLayer(options)_**
@@ -219,6 +243,14 @@ viewer.addBaseLayer(baseLayer, {
       ：属性，详情参考 [Grid](http://resource.dvgis.cn/cesium-docs/GridImageryProvider.html#.ConstructorOptions)
   - 返回值 `Promise<baseLayer>`
 
+- **_createGoogle2DImageryLayer(options)_**
+
+  创建谷歌 2D 地图
+
+  - 参数
+    - `{Object} options`：属性
+  - 返回值 `Promise<baseLayer>`
+
 - **_createMapboxImageryLayer(options)_**
 
   创建 Mapbox 地图
@@ -244,7 +276,7 @@ viewer.addBaseLayer(baseLayer, {
   - 参数
     - `{Object} options`
       ：属性，详情参考 [TMS](http://resource.dvgis.cn/cesium-docs/TileMapServiceImageryProvider.html#.ConstructorOptions)
-  - 返回值 `Promise<baseLayer>l`
+  - 返回值 `Promise<baseLayer>`
 
 - **_createImageryLayer(type, options)_**
 
@@ -258,11 +290,11 @@ viewer.addBaseLayer(baseLayer, {
 ```js
 // options（属性可选）
 const options = {
-  "url": "", //地址：arcgis/wmts/xyx/single 有效
-  "style": "img", //样式：img、elec、ter。百度：normal，dark，腾讯：img,1、4
-  "key": "", //认证，仅天地图有效
+  "url": "", //地址：arcgis/wmts/xyz/single 有效
+  "style": "img", //样式：高德：img、elec、cva；百度：img、vec、custom、traffic；谷歌：img、elec、cva、ter、img_cva；腾讯：img、elec
+  "key": "", //认证，天地图、星图有效
   "subdomains": [],
-  "crs": "WGS84", // 坐标系: WGS84 、BD09 、GCJ02，仅百度、高德有效
+  "crs": "WGS84", // 坐标系: WGS84 、BD09 、GCJ02，仅百度、高德、谷歌有效
   "protocol": null, // http、https
   "tilingScheme": null, // 瓦片切片模式：GeographicTilingScheme , WebMercatorTilingScheme
   "rectangle": {
@@ -289,11 +321,13 @@ viewer.setTerrain(terrain)
 
 ### static methods
 
-- **_createEllipsoidTerrain()_**
+- **_createEllipsoidTerrain(options)_**
 
   创建默认地形
 
-  returns `Promise<terrain>`
+  - 参数
+    - `{Object} options`：属性
+  - 返回值 `Promise<terrain>`
 
 - **_createUrlTerrain(options)_**
 
@@ -327,7 +361,7 @@ viewer.setTerrain(terrain)
     - `{Object} options`：属性
   - 返回值 `Promise<terrain>`
 
-- **_createTerrain(type，options)_**
+- **_createTerrain(type, options)_**
 
   根据类型创建地形
 

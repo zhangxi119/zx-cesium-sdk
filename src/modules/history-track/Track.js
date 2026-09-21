@@ -47,13 +47,15 @@ class Track {
          * 【性能关键修正】轨迹路径的 positions 改为**恒定数组**
          *
          * 旧实现为 `new Cesium.CallbackProperty(() => this._pathPositions, false)`：
-         *  - `isConstant === false` → Cesium 每帧销毁并重建该折线的 Primitive
-         *    （`DynamicGeometryUpdater.update()` 内的 `removeAndDestroy` + `add(new Primitive)`）；
-         *  - 更严重的是：**回放结束后 `_pathPositions` 已不再变化，几何仍在每帧重建**，
+         *  - `isConstant === false` → Cesium 每帧对该属性求值并走动态更新链路；
+         *  - 更严重的是：**回放结束后 `_pathPositions` 已不再变化，属性仍被每帧求值更新**，
          *    形成持续到组件销毁为止的无谓开销。
          *
          * 现改为普通数组，仅在真正追加点（`_onPostRender`）或重置时重新赋值，
-         * 把「每帧重建」降为「每个新增点重建一次」。
+         * 把「每帧求值」降为「每个新增点重建一次几何」。
+         * 注：高频重写恒定数组会触发静态批处理的「图元移除 → 异步重建」窗口
+         * （多实体共享材质项时不闪但整批重建）；需要连续平滑显示的实时轨迹请参考
+         * `TrajectoryLine` / `Polyline` 的 `dynamicPositions` 动态模式。
          */
         positions: [],
       },

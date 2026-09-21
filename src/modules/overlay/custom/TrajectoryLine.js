@@ -24,6 +24,36 @@ class TrajectoryLine extends Overlay {
     this._tooltipContent = options.tooltipContent || null // tooltip 内容回调
     this._tooltipTrigger = options.tooltipTrigger || 'both' // tooltip 触发方式
     this._showPoints = options.showPoints !== false // 是否显示分点
+    /**
+     * 是否启用**动态坐标模式**（默认关闭，保持 G2 几何静态化的既有默认行为）
+     *
+     * ## 为什么需要它（静态几何的副作用）
+     * 静态 `positions` 在「每次数据变更都重写属性」的实时场景（持续追加轨迹点）下，
+     * 每次重写都会触发 Cesium 的几何变更事件（`PolylineGeometryUpdater._geometryChanged`），
+     * `PolylineVisualizer` 随即把该 updater 从静态批处理中移除并重新插入；
+     * 当这条轨迹是材质批处理项（`StaticGeometryPerMaterialBatch`）中**唯一实体**时，
+     * 批处理项被销毁 —— 正在显示的 Primitive 会被**直接移除**，而新 Primitive 以
+     * `show: false, asynchronous: true` 创建，需等待 Worker 异步几何构建完成后才显示，
+     * 这期间线体从画面消失，表现为「每更新一次坐标就闪一下」。
+     *
+     * ## 动态模式的做法
+     * `positions` 以 `CallbackProperty` 挂在实体上（`isConstant === false`），
+     * Cesium 走 `DynamicGeometryUpdater → PolylineCollection` **原地更新**：
+     * 数据变更只刷新回调返回值，顶点缓冲原位重写，不存在图元销毁/重建窗口（无闪动）。
+     * 默认同时把 `arcType` 设为 `ArcType.NONE` —— 动态几何每帧取值，
+     * GEODESIC 会让折线逐帧执行大地线加密（`PolylinePipeline.generateCartesianArc`）；
+     * 轨迹点间距短，弦线与大地线视觉差异可忽略，需要加密时经 `lineStyle.arcType` 显式传入。
+     *
+     * ## 代价与建议
+     * 该折线每帧执行一次 O(顶点数) 的顶点缓冲写入（仅此一条线，远小于静态路径
+     * 「每次数据变更整批重建图元 + 异步几何」的开销）。**实时轨迹建议开启**；
+     * 静态渲染 / 低频更新场景保持默认关闭即可。
+     * 注意：`clampToGround: true` 时 Cesium 的动态路径会逐帧重建 `GroundPolylinePrimitive`
+     * （同步几何、开销较高），贴地轨迹建议保持静态模式。
+     */
+    this._dynamicPositions = options.dynamicPositions === true
+    /** 动态模式下的坐标属性（CallbackProperty：每次求值返回最新 Cartesian 缓存） */
+    this._positionsProperty = undefined
     this._lineStyle = {
       color: Cesium.Color.fromCssColorString('#00FFFF'),
       width: 4,
@@ -44,24 +74,50 @@ class TrajectoryLine extends Overlay {
       ...(options.pointStyle || {}),
     }
 
+    /**
+     * 动态模式：先把初始坐标同步进 Cartesian 缓存，再以回调属性挂载
+     * （回调读取 `_cachedCartesianPositions`，由 `_ensureCartesianCache` 在数据变更时刷新）
+     */
+    if (this._dynamicPositions) {
+      this._ensureCartesianCache()
+      this._positionsProperty = new Cesium.CallbackProperty(
+        () => this._cachedCartesianPositions,
+        false
+      )
+    }
+
     this._delegate = new Cesium.Entity({
       polyline: {
         /**
-         * 【性能关键修正】positions 改为**恒定数组**（原为非恒定 CallbackProperty）
+         * 【性能关键修正】positions 默认改为**恒定数组**（原为非恒定 CallbackProperty）
          *
-         * 旧实现即使内部已有 `_cachedCartesianPositions` 缓存，由于 `isConstant === false`，
-         * Cesium 仍会把该实体判定为**动态几何**，于是
-         * `DynamicGeometryUpdater.update()` **每帧**执行
-         * `primitives.removeAndDestroy(...)` + `primitives.add(new Primitive(...))`
-         * —— 即每帧销毁并重建 GPU 顶点缓冲，缓存形同虚设。
+         * 旧实现为 `CallbackProperty`，`isConstant === false` 使实体被 Cesium 判定为
+         * **动态几何**（走 `DynamicGeometryUpdater` 每帧取值更新），静态渲染 / 低频更新
+         * 场景下这笔逐帧开销是纯浪费（内部 Cartesian 缓存形同虚设）。
          *
-         * 现改为普通数组（Cesium 包装为 ConstantProperty），仅在坐标变更时通过
-         * `_flushGeometry()` 重新赋值，几何随之构建一次。
+         * 现默认改为普通数组（Cesium 包装为 ConstantProperty），仅在坐标变更时通过
+         * `_flushGeometry()` 重新赋值，几何随之构建一次 —— 静态渲染的最优解。
+         *
+         * 【重要边界】实时轨迹（持续追加坐标）高频重写恒定属性会触发静态批处理的
+         * 「图元移除 → 异步重建」可见窗口（唯一实体材质项下表现为每次更新闪动一次），
+         * 该场景应显式开启 `dynamicPositions` 改走动态原地更新路径（见上方注释）。
          */
-        positions: Transform.transformWGS84ArrayToCartesianArray(this._positions),
+        positions: this._dynamicPositions
+          ? this._positionsProperty
+          : Transform.transformWGS84ArrayToCartesianArray(this._positions),
         width: this._lineStyle.width,
         material: this._createLineMaterial(),
         clampToGround: this._lineStyle.clampToGround,
+        ...(this._dynamicPositions
+          ? {
+              /**
+               * 动态模式默认跳过大地线加密：动态几何每帧取值，GEODESIC 会逐帧
+               * `generateCartesianArc` 加密（开销随点数放大）；轨迹点间距短，
+               * 弦线与大地线视觉差异可忽略
+               */
+              arcType: this._lineStyle.arcType ?? Cesium.ArcType.NONE,
+            }
+          : {}),
       },
     })
 
@@ -71,6 +127,11 @@ class TrajectoryLine extends Overlay {
   /** 覆盖物类型 */
   get type() {
     return Overlay.getOverlayType('trajectory_line')
+  }
+
+  /** 是否启用动态坐标模式（实时轨迹防闪动，构造后不可变） */
+  get dynamicPositions() {
+    return this._dynamicPositions
   }
 
   /**
@@ -407,17 +468,21 @@ class TrajectoryLine extends Overlay {
   /**
    * 把坐标变更同步到几何（线 + 分点）
    *
-   * 取代原先「依赖非恒定 CallbackProperty 自动响应」的机制：
-   * 现在位置与尺寸都是**恒定属性**，必须在数据变更后显式赋值一次，
-   * 从而把「每帧重建」降为「每次数据变更重建一次」。
+   * 静态模式（默认）：位置与尺寸都是**恒定属性**，数据变更后显式赋值一次，
+   * 把「每帧重建」降为「每次数据变更重建一次」；
+   * 动态模式（dynamicPositions: true）：positions 由 `CallbackProperty` 提供
+   * （读取 `_cachedCartesianPositions`），此处只刷新缓存与分点，
+   * **不重写实体属性** —— 属性实例保持不变，Cesium 走 PolylineCollection 原地更新，
+   * 避免静态批处理「图元移除 → 异步重建」造成的闪动（见构造函数注释）。
    * @private
    */
   _flushGeometry() {
     this._ensureCartesianCache()
     /**
-     * 线：必须是新的外层数组，赋值才会触发几何重建
+     * 线：静态模式必须是新的外层数组，赋值才会触发几何重建；
+     * 动态模式由回调属性天然响应缓存变化，无需（也不应）重写属性
      */
-    if (this._delegate?.polyline) {
+    if (!this._dynamicPositions && this._delegate?.polyline) {
       this._delegate.polyline.positions =
         Transform.transformWGS84ArrayToCartesianArray(this._positions)
     }

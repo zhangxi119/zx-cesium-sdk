@@ -7,29 +7,64 @@ import { Transform } from '../../transform'
 import { center, distance } from '../../math'
 
 class Polyline extends Overlay {
-  constructor(positions) {
+  /**
+   * 构造函数
+   * @param positions {Position[]|string} 坐标点数组
+   * @param options {Object} 可选配置项
+   * @param options.dynamicPositions {boolean} 是否启用动态坐标模式（默认 false，实时连线防闪动）
+   * @param options.arcType {number} 动态模式下的弧线类型（默认 ArcType.NONE，跳过逐帧大地线加密）
+   */
+  constructor(positions, options = {}) {
     super()
     this._positions = Parse.parsePositions(positions)
     /**
-     * 【性能关键修正】positions 改为**恒定数组**（不再使用非恒定 CallbackProperty）
+     * 【性能关键修正】positions 默认改为**恒定数组**（不再默认使用非恒定 CallbackProperty）
      *
-     * 旧实现把 positions 写成 `new Cesium.CallbackProperty(fn, false)`，
-     * `isConstant === false` 会让 Cesium 把这条线判定为**动态几何**，于是
-     * `DynamicGeometryUpdater.prototype.update()` **每帧**都会执行：
-     * ```js
-     * primitives.removeAndDestroy(this._primitive);          // 销毁 Primitive 及其 GPU 顶点缓冲
-     * appearance = new MaterialAppearance({ ... });           // 每帧新建 Appearance
-     * this._primitive = primitives.add(new Primitive({...})); // 每帧新建 Primitive 并重新上传几何
-     * ```
-     * 代价按「线数 × 点数 × 帧率」放大：一条 721 点的圆周描边每秒就要重建 60 次 GPU 缓冲，
-     * 是三维稳态帧率的主要瓶颈。
+     * 旧实现固定把 positions 写成 `new Cesium.CallbackProperty(fn, false)`，
+     * `isConstant === false` 会使 Cesium 把这条线判定为**动态几何** ——
+     * 每帧都要对属性求值并走动态更新链路；对静态渲染 / 低频更新的线而言
+     * 这笔逐帧开销是纯浪费，且多线叠加后按「线数 × 帧率」放大。
      *
      * 改为普通数组后，Cesium 会将其包装为 `ConstantProperty`，
      * **几何只在 positions 被赋值时构建一次**；数据变化时通过下方的 setter 重新赋值即可。
+     *
+     * 【重要边界】高频重写恒定属性（如实时连线每秒多次重赋值）会触发静态批处理的
+     * 「图元移除 → 异步重建」可见窗口（唯一实体材质项下表现为每次更新闪动一次），
+     * 该场景改为 `dynamicPositions: true` —— 动态几何在当前 Cesium 中走
+     * `PolylineCollection` 顶点缓冲**原地更新**（非重建），无可见窗口；
+     * 详见 `TrajectoryLine` 构造函数同名注释与 CHANGES。
      */
+    this._dynamicPositions = options.dynamicPositions === true
+    /** 动态模式下的坐标属性（CallbackProperty：每次求值返回最新 Cartesian 缓存） */
+    this._positionsProperty = undefined
+    /** 动态模式的 Cartesian 缓存（坐标变更时整体重建，回调直接返回该引用） */
+    this._cartesianPositions = undefined
+    if (this._dynamicPositions) {
+      this._cartesianPositions = Transform.transformWGS84ArrayToCartesianArray(
+        this._positions
+      )
+      this._positionsProperty = new Cesium.CallbackProperty(
+        () => this._cartesianPositions,
+        false
+      )
+    }
     this._delegate = new Cesium.Entity({
       polyline: {
-        positions: Transform.transformWGS84ArrayToCartesianArray(this._positions),
+        ...(this._dynamicPositions
+          ? {
+              positions: this._positionsProperty,
+              /**
+               * 动态模式默认跳过大地线加密：动态几何每帧取值，GEODESIC 会逐帧
+               * `generateCartesianArc` 加密（开销随点数放大）；
+               * 需要加密时经构造参数 `arcType` 显式传入
+               */
+              arcType: options.arcType ?? Cesium.ArcType.NONE,
+            }
+          : {
+              positions: Transform.transformWGS84ArrayToCartesianArray(
+                this._positions
+              ),
+            }),
       },
     })
     /** 最近一次同步到实体的点位数组引用（用于避免挂载时重复构建几何） */
@@ -39,6 +74,11 @@ class Polyline extends Overlay {
 
   get type() {
     return Overlay.getOverlayType('polyline')
+  }
+
+  /** 是否启用动态坐标模式（实时连线防闪动，构造后不可变） */
+  get dynamicPositions() {
+    return this._dynamicPositions
   }
 
   set positions(positions) {
@@ -51,11 +91,15 @@ class Polyline extends Overlay {
   }
 
   /**
-   * 把当前 WGS84 点位同步到实体上的恒定属性
+   * 把当前 WGS84 点位同步到实体上的坐标属性
    *
-   * 说明：`PolylineGraphics.positions` 每次**赋值**都会触发 `definitionChanged`，
-   * 进而让 Cesium 重建一次几何 —— 这是期望行为（低频、仅在数据变化时发生）。
-   * 注意必须是**新的外层数组**：复用同一数组实例不会触发变更通知。
+   * 静态模式（默认）：`PolylineGraphics.positions` 每次**赋值**都会触发
+   * `definitionChanged`，进而让 Cesium 重建一次几何 —— 这是期望行为
+   * （低频、仅在数据变化时发生）；注意必须是**新的外层数组**，
+   * 复用同一数组实例不会触发变更通知。
+   * 动态模式（dynamicPositions: true）：只刷新回调数据源（Cartesian 缓存），
+   * **不重写实体属性** —— 属性实例保持不变，Cesium 走 PolylineCollection
+   * 顶点缓冲原地更新，不存在图元销毁/异步重建窗口（无闪动）。
    * @private
    */
   _syncPositions() {
@@ -63,6 +107,12 @@ class Polyline extends Overlay {
       return
     }
     this._syncedPositions = this._positions
+    if (this._dynamicPositions) {
+      this._cartesianPositions = Transform.transformWGS84ArrayToCartesianArray(
+        this._positions
+      )
+      return
+    }
     this._delegate.polyline.positions =
       Transform.transformWGS84ArrayToCartesianArray(this._positions)
   }

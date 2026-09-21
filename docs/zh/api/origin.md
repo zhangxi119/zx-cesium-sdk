@@ -99,13 +99,17 @@ let m = new DC.Matrix4()
 
 ```js
 
-let m = new DC.Material()
+let m = new DC.Material({
+  fabric: {
+    type: 'Color'
+  }
+})
 
-let m_1 = new Cesium.Material({
+let m_1 = new DC.Material({
   fabric: {
     type: 'Color',
     uniforms: {
-      color: new Cesium.Color(1.0, 1.0, 0.0, 1.0)
+      color: new DC.Color(1.0, 1.0, 0.0, 1.0)
     }
   }
 });
@@ -127,25 +131,22 @@ const mode = DC.SceneMode.SCENE3D
 
 ### example
 
-```
-
-js
+```js
 scene.skyBox = new DC.SkyBox({
-sources: {
-positiveX: 'skybox_px.png',
-negativeX: 'skybox_nx.png',
-positiveY: 'skybox_py.png',
-negativeY: 'skybox_ny.png',
-positiveZ: 'skybox_pz.png',
-negativeZ: 'skybox_nz.png',
-},
+  sources: {
+    positiveX: 'skybox_px.png',
+    negativeX: 'skybox_nx.png',
+    positiveY: 'skybox_py.png',
+    negativeY: 'skybox_ny.png',
+    positiveZ: 'skybox_pz.png',
+    negativeZ: 'skybox_nz.png',
+  },
 })
-
 ```
 
 ### creation
 
-- **_constructor(id)_**
+- **_constructor(options)_**
 
   构造函数
 

@@ -48,7 +48,6 @@ aroundPoint.start()
 ```js
 //options（属性可选）
 const options = {
-  "heading": 0, //偏移角度
   "pitch": 0, //翻转角度
   "range": 0, //距离
   "duration": 0, //间隔，单位：秒,当此值大于0时，callback才会生效
@@ -56,6 +55,12 @@ const options = {
   "context": null //回调函数执行上下文
 }
 ```
+
+### properties
+
+- `{Position|String|Array} position`：点位
+- `{Number} aroundAmount`：环绕角度增量：0.2
+- `{String} type`：动画类型 **_`readonly`_**
 
 ## DC.AroundView
 
@@ -82,7 +87,6 @@ aroundView.start()
 ```js
 //options（可选）
 const options = {
-  "heading": 0,//偏移角度
   "pitch": 0,//俯仰角度
   "roll": 0,//翻转角度
   "duration": 0,//间隔，单位：秒，当此值大于0时，callback才会生效
@@ -90,6 +94,11 @@ const options = {
   "context": null//回调函数执行上下文
 }
 ```
+
+### properties
+
+- `{Number} aroundAmount`：环绕角度增量：0.2
+- `{String} type`：动画类型 **_`readonly`_**
 
 ## DC.Flying
 
@@ -127,6 +136,7 @@ const options = {
 
 - `{Array} positions`：点位
 - `{Array} durations`：每个点位的飞行间隔时间，当数组长度为 1 时，每个间隔时间相同，如果不为 1 时，长度必须和点位长度相等
+- `{String} type`：动画类型 **_`readonly`_**
 
 ### methods
 
@@ -185,6 +195,10 @@ const options = {
 }
 ```
 
+### properties
+
+- `{String} type`：动画类型 **_`readonly`_**
+
 ## DC.RoamingController
 
 > 漫游控制
@@ -229,7 +243,7 @@ let rc = new DC.RoamingController(viewer)
 
   - 参数
     - `{RoamingPath} path`：路径
-  - 返回值 `path`
+  - 返回值 `this`
 
 - **_getPath(id)_**
 
@@ -251,7 +265,7 @@ let rc = new DC.RoamingController(viewer)
 
   - 参数
     - `{RoamingPath} path`：路径
-    - `{String} viewOption`：漫游参数
+    - `{Object} viewOption`：漫游参数
   - 返回值 `this`
 
 ```js
@@ -304,6 +318,8 @@ rc.addPath(path)
 - `{String|Array<Position|Number|String>} positions`：坐标串
 - `{Number} duration`：间隔时间，单位：秒
 - `{String} pathMode`：路径模式：speed(匀速) / time(等时)
+- `{PathEvent} pathEvent`：路径事件 **_`readonly`_**
+- `{Boolean} actived`：是否激活
 - `{String} state`：状态 **_`readonly`_**
 
 ## DC.KeyboardRoaming
@@ -353,6 +369,11 @@ let tc = new DC.TrackController(viewer)
     - `{Viewer} viewer`：3D 场景
   - 返回值 `trackController`
 
+### properties
+
+- `{Object} delegate`：实体集合 **_`readonly`_**
+- `{String} state`：状态 **_`readonly`_**
+
 ### methods
 
 - **_addTrack(track)_**
@@ -377,7 +398,7 @@ let tc = new DC.TrackController(viewer)
 
   - 参数
     - `{Track} track`：轨迹
-  - 返回值 `path`
+  - 返回值 `this`
 
 - **_getTrack(id)_**
 
@@ -417,7 +438,7 @@ let tc = new DC.TrackController(viewer)
 
   - 参数
     - `{Track} track`：路径
-    - `{String} viewOption`：配置信息
+    - `{Object} viewOption`：配置信息
   - 返回值 `this`
 
 ```js
@@ -471,6 +492,7 @@ tc.addTrack(track)
 ```js
 //options（属性可选）
 const options = {
+  "loop": false,// 是否循环
   "clampToGround": false,// 是否贴地
   "clampToTileset": false,// 是否贴物
   "interpolationType": "Linear",// 插值类型：Linear、Hermite、Lagrange
@@ -487,6 +509,11 @@ const options = {
 - `{String|Array<Position|Number|String|Object>} positions`：坐标串
 - `{Number} duration`：间隔时间，单位：秒
 - `{Date} startTime`：开始时间，设置后会独立于控制器的开始时间
+- `{Boolean} viewed`：是否跟踪
+- `{Number} allDistance`：总距离 **_`readonly`_**
+- `{Number} currentDistance`：当前已行进距离 **_`readonly`_**
+- `{Position} currentPosition`：当前位置 **_`readonly`_**
+- `{TrackEvent} trackEvent`：轨迹事件 **_`readonly`_**
 - `{String} state`：状态 **_`readonly`_**
 
 ### methods
@@ -500,7 +527,7 @@ const options = {
     - `{Number} duration`：间隔，单位：秒
   - 返回值 `this`
 
-- **_setModel(modelUrl,style)_**
+- **_setModel(modelPath,style)_**
 
   设置模型
 
@@ -532,6 +559,6 @@ const options = {
   设置路径
 
   - 参数
-    - `{Boolean}} visible`：是否可见
+    - `{Boolean} visible`：是否可见
     - `{Object} style`：样式，参考：[DC.Polyline](./overlay-vector#dc-polyline)
   - 返回值 `this`

@@ -18,6 +18,8 @@
 - `{String} state`：覆盖物状态 **_`readonly`_**
 - `{String} type`：覆盖物类型 **_`readonly`_**
 - `{Boolean} allowDrillPicking`：是否可以穿透选择，默认为 false，如果为 true 时，覆盖物为穿透选择其后面的所有覆盖物，并触发其后面的所有覆盖物的鼠标事件
+- `{Object} overlayEvent`：覆盖物事件对象 **_`readonly`_**
+- `{Object} delegate`：底层委托对象（Entity 或 Primitive） **_`readonly`_**
 
 ### methods
 
@@ -45,8 +47,16 @@
   - 返回值 `this`
 
 :::warning
-该函数仅对下列覆盖物有效：Point、Circle、Polygon、Billboard、Ellipse、Rectangle
+该函数仅对下列覆盖物有效：Point、Circle、Polygon、Billboard、Ellipse、Rect
 :::
+
+- **_setStyle(style)_**
+
+  设置样式
+
+  - 参数
+    - `{Object} style`：样式
+  - 返回值 `this`
 
 - **_on(type, callback, context)_**
 
@@ -96,7 +106,7 @@
 
 ## DC.Point
 
-> 点位要素，继承于[Overlay](#overlay)
+> 点位要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -135,28 +145,28 @@ point.setStyle({
 ```js
 // style（属性可选）
 const style = {
-  "pixelSize": 1, //像素大小
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "color": DC.Color.WHITE, //颜色
-  "outlineColor": DC.Color.WHITE, //边框颜色
-  "outlineWidth": 0, //边框大小，
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  pixelSize: 1, //像素大小
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  color: DC.Color.WHITE, //颜色
+  outlineColor: DC.Color.WHITE, //边框颜色
+  outlineWidth: 0, //边框大小，
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
 
@@ -170,7 +180,7 @@ const style = {
 
 ## DC.Polyline
 
-> 线要素，继承于[Overlay](#overlay)
+> 线要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -183,21 +193,34 @@ polyline.setStyle({
 
 ### creation
 
-- **_constructor(positions)_**
+- **_constructor(positions,[options])_**
 
   构造函数
 
   - 参数
     - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+    - `{Object} options`：参数设置
+      - `{Boolean} dynamicPositions`：是否启用**动态坐标模式**（默认 `false`）。高频重赋值坐标（如实时连线每秒多次更新）建议开启：`positions` 走 `CallbackProperty` → Cesium 顶点缓冲**原地更新**，避免静态几何每次重赋值触发「图元移除 → 异步重建」的闪动
+      - `{Number} arcType`：动态模式下的弧线类型（默认 `ArcType.NONE`，跳过逐帧大地线加密；短距离连线无需加密）
   - 返回值 `polyline`
 
 ### properties
 
 - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+- `{Boolean} dynamicPositions`：是否启用动态坐标模式，构造时指定 **_`readonly`_**
 - `{DC.Position} center`：中心点 **_`readonly`_**
 - `{Number} distance`：距离,单位：米 **_`readonly`_**
 
 ### methods
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
 
 - **_setStyle(style)_**
 
@@ -210,16 +233,16 @@ polyline.setStyle({
 ```js
 // style（属性可选）
 const style = {
-  "width": 1, //线宽
-  "material": DC.Color.WHITE, //材质
-  "clampToGround": false, //是否贴地
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  width: 1, //线宽
+  material: DC.Color.WHITE, //材质
+  clampToGround: false, //是否贴地
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
@@ -233,7 +256,7 @@ const style = {
 
 ## DC.Polygon
 
-> 面要素，继承于[Overlay](#overlay)
+> 面要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -251,7 +274,7 @@ polygon.setStyle({
   构造函数
 
   - 参数
-    - `{String|Array<Position|Number|String|Object} positions`：坐标串
+    - `{String|Array<Position|Number|String|Object>} positions`：坐标串
   - 返回值 `polygon`
 
 ### properties
@@ -262,6 +285,15 @@ polygon.setStyle({
 - `{Number} area`：距离，单位：平方米 **_`readonly`_**
 
 ### methods
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
 
 - **_setStyle(style)_**
 
@@ -274,24 +306,24 @@ polygon.setStyle({
 ```js
 // style（属性可选）
 const style = {
-  "height": 1, //高度
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "extrudedHeight": 0, //拉升高度
-  "stRotation": 0, //旋转角度
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "closeTop": true, //顶面是否闭合
-  "closeBottom": true, //底面是否闭合
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  height: 1, //高度
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  extrudedHeight: 0, //拉升高度
+  stRotation: 0, //旋转角度
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  closeTop: true, //顶面是否闭合
+  closeBottom: true, //底面是否闭合
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
@@ -305,7 +337,7 @@ const style = {
 
 ## DC.Billboard
 
-> 图标要素，继承于[Overlay](#overlay)
+> 图标要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -345,27 +377,27 @@ billboard.size = [20, 20]
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "scale": 1, //比例
-  "pixelOffset": { "x": 0, "y": 0 }, //偏移像素
-  "rotation": 0, //旋转角度
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  scale: 1, //比例
+  pixelOffset: { x: 0, y: 0 }, //偏移像素
+  rotation: 0, //旋转角度
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
 
@@ -379,7 +411,7 @@ const style = {
 
 ## DC.Label
 
-> 标签要素，继承于[Overlay](#overlay)
+> 标签要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -417,48 +449,47 @@ let Label = new DC.Label(position, 'test')
 ```js
 // style（属性可选）
 const style = {
-  "font": "30px sans-serif", // CSS 字体设置
-  "scale": 1, //比例
-  "pixelOffset": { "x": 0, "y": 0 }, //偏移像素
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "showBackground": false, //是否显示背景
-  "backgroundColor": DC.Color.BLACK, //背景颜色
-  "backgroundPadding": { "x": 0, "y": 0 }, //背景间隙
-  "fillColor": DC.Color.BLACK, //文字颜色
-  "outlineColor": DC.Color.WHITE, //边框颜色
-  "outlineWidth": 0, //边框大小，
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  font: '30px sans-serif', // CSS 字体设置
+  scale: 1, //比例
+  pixelOffset: { x: 0, y: 0 }, //偏移像素
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  showBackground: false, //是否显示背景
+  backgroundColor: DC.Color.BLACK, //背景颜色
+  backgroundPadding: { x: 0, y: 0 }, //背景间隙
+  fillColor: DC.Color.BLACK, //文字颜色
+  outlineColor: DC.Color.WHITE, //边框颜色
+  outlineWidth: 0, //边框大小，
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
 
-- **_fromEntity(entity,text)_**
+- **_fromEntity(entity)_**
 
   Entity 转换为 Overlay
 
   - 参数
     - `{Object} entity`：Cesium 覆盖物
-    - `{String} text`：文本
   - 返回值 `label`
 
 ## DC.Circle
 
-> 圆要素，继承于[Overlay](#overlay)
+> 圆要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -475,15 +506,28 @@ let circle = new DC.Circle(position, 200)
 
   - 参数
     - `{Position|String|Array|Object} center`：圆心
-    - `{String} radius`：半径
-  - 返回值 `billboard`
+    - `{Number} radius`：半径
+  - 返回值 `circle`
 
 ### properties
 
 - `{Position} center`：圆心
-- `{String} radius`：半径
+- `{Number} radius`：半径
+- `{Number} rotateAmount`：旋转角速度，单位：度/秒
+- `{Boolean} outline`：是否显示边框
+- `{Color} outlineColor`：边框颜色
+- `{Number} outlineWidth`：边框宽度
 
 ### methods
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
 
 - **_setStyle(style)_**
 
@@ -496,29 +540,29 @@ let circle = new DC.Circle(position, 200)
 ```js
 // style（属性可选）
 const style = {
-  "height": 1, //高度
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "extrudedHeight": 0, //拉升高度
-  "rotation": 0, //顺时针旋转角度
-  "stRotation": 0, //逆时针旋转角度
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  height: 1, //高度
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  extrudedHeight: 0, //拉升高度
+  rotation: 0, //顺时针旋转角度
+  stRotation: 0, //逆时针旋转角度
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
 ## DC.Rect
 
-> 矩形要素，继承于[Overlay](#overlay)
+> 矩形要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -542,6 +586,15 @@ let rectangle = new DC.Rect('-90.0,32.0;-94.0,36.0;')
 
 ### methods
 
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
+
 - **_setStyle(style)_**
 
   设置样式
@@ -553,29 +606,29 @@ let rectangle = new DC.Rect('-90.0,32.0;-94.0,36.0;')
 ```js
 // style（属性可选）
 const style = {
-  "height": 1, //高度
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "extrudedHeight": 0, //拉升高度
-  "rotation": 0, //顺时针旋转角度
-  "stRotation": 0, //逆时针旋转角度
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  height: 1, //高度
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  extrudedHeight: 0, //拉升高度
+  rotation: 0, //顺时针旋转角度
+  stRotation: 0, //逆时针旋转角度
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
 ## DC.Wall
 
-> 墙体要素，继承于[Overlay](#overlay)
+> 墙体要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -610,17 +663,17 @@ let wall = new DC.Wall('-90.0,32.0,1000;-94.0,36.0,1000;')
 ```js
 // style（属性可选）
 const style = {
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2 //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
 }
 ```
 
@@ -634,7 +687,7 @@ const style = {
 
 ## DC.Model
 
-> 模型要素，继承于[Overlay](#overlay)
+> 模型要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -650,7 +703,7 @@ let model = new DC.Model(position, '**/**.glb')
   构造函数
 
   - 参数
-    - ``{Position|String|Array|Object} position`：坐标
+    - `{Position|String|Array|Object} position`：坐标
     - `{String} modelUrl`：模型地址
   - 返回值 `model`
 
@@ -658,6 +711,7 @@ let model = new DC.Model(position, '**/**.glb')
 
 - `{Position} position`：坐标
 - `{String} modelUrl`：模型地址
+- `{Number} rotateAmount`：自转速度，单位：度/秒
 
 ### methods
 
@@ -672,18 +726,18 @@ let model = new DC.Model(position, '**/**.glb')
 ```js
 // style（属性可选）
 const style = {
-  "scale": 1, //比例
-  "minimumPixelSize": 0, //指定模型的最小像素大小，而不考虑缩放
-  "maximumScale": 0, //指定模型的最大比例
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "silhouetteColor": DC.Color.RED, //轮廓颜色
-  "silhouetteSize": 0, //轮廓宽度
-  "lightColor": DC.Color.RED, //模型着色时指定灯光颜色
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  scale: 1, //比例
+  minimumPixelSize: 0, //指定模型的最小像素大小，而不考虑缩放
+  maximumScale: 0, //指定模型的最大比例
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  silhouetteColor: DC.Color.RED, //轮廓颜色
+  silhouetteSize: 0, //轮廓宽度
+  lightColor: DC.Color.RED, //模型着色时指定灯光颜色
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
@@ -698,7 +752,7 @@ const style = {
 
 ## DC.Tileset
 
-> 3Dtiles 模型要素，继承于[Overlay](#overlay)
+> 3Dtiles 模型要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -720,8 +774,6 @@ tileset.setPosition(position)
   - 返回值 `tileset`
 
 ### properties
-
-- `{Promise} readyPromise`：加载完成后的异步函数 **_`readonly`_**
 
 ### methods
 
@@ -800,20 +852,91 @@ tileset.setPosition(position)
 ```js
 // style（属性可选）
 const style = {
-  "key": "name",
+  key: 'name',
   //已有属性名称
-  "keyValue": "1",
+  keyValue: '1',
   //已有属性值
-  "propertyName": "highlight",
+  propertyName: 'highlight',
   //新增属性名称
-  "propertyValue": true
+  propertyValue: true,
   //新增属性值
 }
 ```
 
+- **_ready(callback)_**
+
+  加载完成后执行回调
+
+  - 参数
+    - `{Function} callback`：回调函数
+  - 返回值 `this`
+
+- **_clampToGround()_**
+
+  模型贴地
+
+  - 返回值 `this`
+
+- **_setSplitDirection(splitDirection)_**
+
+  设置分割方向
+
+  - 参数
+    - `{Number} splitDirection`：分割方向
+  - 返回值 `this`
+
+## DC.I3S
+
+> I3S 模型要素，继承于[Overlay](#dc-overlay)
+
+### example
+
+```js
+let i3s = new DC.I3S('**/**.json')
+i3s.ready(() => {
+  console.log('loaded')
+})
+```
+
+### creation
+
+- **_constructor(url,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String} url`：I3S 服务地址
+    - `{Object} options`：参数设置，[详细使用说明](http://resource.dvgis.cn/cesium-docs/I3SDataProvider.html)
+  - 返回值 `i3s`
+
+### properties
+
+### methods
+
+- **_ready(callback)_**
+
+  加载完成后执行回调
+
+  - 参数
+    - `{Function} callback`：回调函数
+  - 返回值 `this`
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
+
+:::warning
+该函数尚未实现，调用时仅执行 `console.warn('not support this function')`，不会产生任何效果。
+:::
+
 ## DC.DivIcon
 
-> DivIcon 要素，继承于[Overlay](#overlay)
+> DivIcon 要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -836,7 +959,7 @@ let divIcon = new DC.DivIcon(position, '<div></div>')
 ### properties
 
 - `{Position|String|Array} position`：坐标
-- `{String|Element} content`：内容 **_`writeOnly`_**
+- `{String|Element} content`：内容
 
 ### methods
 
@@ -851,17 +974,17 @@ let divIcon = new DC.DivIcon(position, '<div></div>')
 ```js
 // style（属性可选）
 const style = {
-  "className": "test",//样式名
-  "scaleByDistance": {
-    "near": 0,//最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0//最远距离值
+  className: 'test', //样式名
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE//最远距离
-  }//根据距离设置可见
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
@@ -876,7 +999,7 @@ const style = {
 
 ## DC.Box
 
-> 盒要素，继承于[Overlay](#overlay)
+> 盒要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -918,23 +1041,23 @@ let box = new DC.Box(position, 20, 30, 40)
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE//最远距离
-  }//根据距离设置可见
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
 ## DC.Corridor
 
-> 走廊要素，继承于[Overlay](#overlay)
+> 走廊要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -972,22 +1095,22 @@ corridor.setStyle({
 ```js
 // style（属性可选）
 const style = {
-  "width": 1, //线宽
-  "height": 0, //高度
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "cornerType": 0, //转角类别，0：圆角、1：直角、2：斜角
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  width: 1, //线宽
+  height: 0, //高度
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  cornerType: 0, //转角类别，0：圆角、1：直角、2：斜角
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
@@ -1001,7 +1124,7 @@ const style = {
 
 ## DC.Cylinder
 
-> 圆柱要素，继承于[Overlay](#overlay)
+> 圆柱要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1043,23 +1166,23 @@ let cylinder = new DC.Cylinder(position, 20, 30, 40)
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
 ## DC.Ellipse
 
-> 椭圆要素，继承于[Overlay](#overlay)
+> 椭圆要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1099,29 +1222,29 @@ let ellipse = new DC.Ellipse(position, 20, 30)
 ```js
 // style（属性可选）
 const style = {
-  "height": 1, //高度
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "extrudedHeight": 0, //拉升高度
-  "rotation": 0, //顺时针旋转角度
-  "stRotation": 0, //逆时针旋转角度
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  height: 1, //高度
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  extrudedHeight: 0, //拉升高度
+  rotation: 0, //顺时针旋转角度
+  stRotation: 0, //逆时针旋转角度
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "classificationType": 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
-  "zIndex": 0 //层级
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
 }
 ```
 
 ## DC.Sphere
 
-> 球体要素，继承于[Overlay](#overlay)
+> 球体要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1159,23 +1282,23 @@ let ellipsoid = new DC.Sphere(position, { x: 30, y: 30, z: 30 })
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
-  ```
+```
 
 ## DC.Plane
 
-> 平面要素，继承于[Overlay](#overlay)
+> 平面要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1186,7 +1309,7 @@ let plane = new DC.Plane(position, 20, 30, { normal: 'x' })
 
 ### creation
 
-- **_constructor(position, width, height, direction)_**
+- **_constructor(position, width, height, plane)_**
 
   构造函数
 
@@ -1200,8 +1323,8 @@ let plane = new DC.Plane(position, 20, 30, { normal: 'x' })
 ```js
 // style（属性可选）
 const style = {
-  "normal": "x", // 法线,x,y,z其中一个
-  "distance": 0// 距离
+  normal: 'x', // 法线,x,y,z其中一个
+  distance: 0, // 距离
 }
 ```
 
@@ -1225,22 +1348,22 @@ const style = {
 ```js
 // style（属性可选）
 const style = {
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
 ## DC.PolylineVolume
 
-> 管道要素，继承于[Overlay](#overlay)
+> 管道要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1292,31 +1415,146 @@ let polylineVolume = new DC.PolylineVolume(
 ```js
 // style（属性可选）
 const style = {
-  "cornerType": 0, //转角类别，0：圆角、1：直角、2：斜角
-  "fill": true, //是否用提供的材料填充多边形。
-  "material": DC.Color.WHITE, //材质
-  "outline": false, //是否显示边框
-  "outlineColor": DC.Color.BLACK, //边框颜色
-  "outlineWidth": 0, //边框宽度
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  cornerType: 0, //转角类别，0：圆角、1：直角、2：斜角
+  fill: true, //是否用提供的材料填充多边形。
+  material: DC.Color.WHITE, //材质
+  outline: false, //是否显示边框
+  outlineColor: DC.Color.BLACK, //边框颜色
+  outlineWidth: 0, //边框宽度
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
-- **_fromEntity(entity)_**
+- **_fromEntity(entity, shape)_**
 
   Entity 转换为 Overlay
 
   - 参数
     - `{Object} entity`：Cesium 覆盖物
+    - `{Array} shape`：形状
   - 返回值 `polylineVolume`
+
+## DC.BezierCurve
+
+> 贝塞尔曲线要素，继承于[Overlay](#dc-overlay)
+
+### example
+
+```js
+let curve = new DC.BezierCurve('120,20;121,21;122,20')
+curve.setCurveType('spline')
+curve.setShowControlPoints(true)
+```
+
+### creation
+
+- **_constructor(positions,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+    - `{Object} options`：参数设置
+  - 返回值 `bezierCurve`
+
+### properties
+
+- `{String|Array<Position|Number|String|Object>} positions`：坐标串
+- `{Number} resolution`：曲线分段数，默认为 100
+- `{String} curveType`：曲线类型，`'linear'`、`'quadratic'`、`'cubic'`、`'auto'`、`'spline'`，默认为 `'spline'`
+- `{Boolean} showControlPoints`：是否显示控制点，默认为 false
+- `{Object} controlPointStyle`：控制点样式，默认为 `{ pixelSize: 8, color: DC.Color.YELLOW, outlineColor: DC.Color.BLACK, outlineWidth: 2 }`
+
+### methods
+
+- **_setCurveType(type)_**
+
+  设置曲线类型
+
+  - 参数
+    - `{String} type`：曲线类型，`'linear'`、`'quadratic'`、`'cubic'`、`'auto'`、`'spline'`
+  - 返回值 `this`
+
+- **_setResolution(resolution)_**
+
+  设置曲线分段数
+
+  - 参数
+    - `{Number} resolution`：曲线分段数，限制在 10~1000 之间
+  - 返回值 `this`
+
+- **_setShowControlPoints(show)_**
+
+  显示/隐藏控制点
+
+  - 参数
+    - `{Boolean} show`：是否显示控制点
+  - 返回值 `this`
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签，标签显示在曲线中点
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
+
+- **_setStyle(style)_**
+
+  设置样式
+
+  - 参数
+    - `{Object} style`：样式，[详细使用说明](http://resource.dvgis.cn/cesium-docs/PolylineGraphics.html)
+  - 返回值 `this`
+
+```js
+// style（属性可选）
+const style = {
+  width: 1, //线宽
+  material: DC.Color.WHITE, //材质
+  clampToGround: false, //是否贴地
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
+  classificationType: 2, //分类 是否影响地形，3D切片或同时影响这两者。0:地形、1:3D切片、2：两者
+  zIndex: 0, //层级
+  controlPointStyle: {
+    pixelSize: 8, //像素大小
+    color: DC.Color.YELLOW, //颜色
+    outlineColor: DC.Color.BLACK, //边框颜色
+    outlineWidth: 2, //边框大小
+  }, //控制点样式
+}
+```
+
+- **_getCurveLength()_**
+
+  获取曲线长度（近似值）
+
+  - 返回值 `number`：曲线长度，单位：米
+
+- **_getPointAtParameter(t)_**
+
+  获取曲线参数 t 处的点
+
+  - 参数
+    - `{Number} t`：参数值，取值范围 0~1，超出范围时自动截断
+  - 返回值 `Cesium.Cartesian3`
+
+- **_destroy()_**
+
+  销毁
 
 ## DC.DynamicBillboard
 
-> 动态图标，继承于[Overlay](#overlay)
+> 动态图标，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1342,6 +1580,7 @@ billboard.size = [20, 20]
 - `{Position} position`：坐标 **_`readonly`_**
 - `{String} icon`：图标地址
 - `{Array<Number>} size`：图标大小
+- `{Number} maxCacheSize`：最大缓存点位数量，默认为 10
 
 ### methods
 
@@ -1365,33 +1604,33 @@ billboard.size = [20, 20]
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "scale": 1, //比例
-  "pixelOffset": { "x": 0, "y": 0 }, //偏移像素
-  "rotation": 0, //旋转角度
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  scale: 1, //比例
+  pixelOffset: { x: 0, y: 0 }, //偏移像素
+  rotation: 0, //旋转角度
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
 
 ## DC.DynamicModel
 
-> 动态模型要素，继承于[Overlay](#overlay)
+> 动态模型要素，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1415,6 +1654,7 @@ let model = new DC.DynamicModel(position, '**/**.glb')
 
 - `{Position} position`：坐标 **_`readonly`_**
 - `{String} modelUrl`：模型地址
+- `{Number} maxCacheSize`：最大缓存点位数量，默认为 10
 
 ### methods
 
@@ -1438,24 +1678,24 @@ let model = new DC.DynamicModel(position, '**/**.glb')
 ```js
 // style（属性可选）
 const style = {
-  "scale": 1, //比例
-  "minimumPixelSize": 0, //指定模型的最小像素大小，而不考虑缩放
-  "maximumScale": 0, //指定模型的最大比例
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "shadows": 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
-  "silhouetteColor": DC.Color.RED, //轮廓颜色
-  "silhouetteSize": 0, //轮廓宽度
-  "lightColor": DC.Color.RED, //模型着色时指定灯光颜色
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
-  } //根据距离设置可见
+  scale: 1, //比例
+  minimumPixelSize: 0, //指定模型的最小像素大小，而不考虑缩放
+  maximumScale: 0, //指定模型的最大比例
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  shadows: 0, //阴影类型，0：禁用、1：启用 、2：投射、3：接受
+  silhouetteColor: DC.Color.RED, //轮廓颜色
+  silhouetteSize: 0, //轮廓宽度
+  lightColor: DC.Color.RED, //模型着色时指定灯光颜色
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
+  }, //根据距离设置可见
 }
 ```
 
 ## DC.CustomBillboard
 
-> 自定义图标，继承于[Overlay](#overlay)
+> 自定义图标，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1481,8 +1721,18 @@ billboard.size = [20, 20]
 - `{Position} position`：坐标
 - `{String} icon`：图标地址
 - `{Array<Number>} size`：图标大小
+- `{Number|Boolean} pixelDensity`：纹理密度，默认为 1，为 true 时按设备像素比计算
 
 ### methods
+
+- **_setLabel(text, textStyle)_**
+
+  设置标签
+
+  - 参数
+    - `{String} text`：文本
+    - `{String} textStyle`：文本样式，[详细使用说明](#dc-label)
+  - 返回值 `this`
 
 - **_setVLine(style)_**
 
@@ -1513,33 +1763,33 @@ billboard.size = [20, 20]
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "scale": 1, //比例
-  "pixelOffset": { "x": 0, "y": 0 }, //偏移像素
-  "rotation": 0, //旋转角度
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  scale: 1, //比例
+  pixelOffset: { x: 0, y: 0 }, //偏移像素
+  rotation: 0, //旋转角度
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
 
 ## DC.CustomLabel
 
-> 自定义文本，继承于[Overlay](#overlay)
+> 自定义文本，继承于[Overlay](#dc-overlay)
 
 ### example
 
@@ -1595,26 +1845,151 @@ let label = new DC.CustomLabel(position, 'test')
 ```js
 // style（属性可选）
 const style = {
-  "heightReference": 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
-  "scale": 1, //比例
-  "pixelOffset": { "x": 0, "y": 0 }, //偏移像素
-  "rotation": 0, //旋转角度
-  "translucencyByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  heightReference: 0, //高度参照，0：位置无参照，位置是绝对的，1：位置固定在地形上 2：位置高度是指地形上方的高度。
+  scale: 1, //比例
+  pixelOffset: { x: 0, y: 0 }, //偏移像素
+  rotation: 0, //旋转角度
+  translucencyByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置透明度
-  "scaleByDistance": {
-    "near": 0, //最近距离
-    "nearValue": 0, //最近距离值
-    "far": 1, //最远距离值
-    "farValue": 0 //最远距离值
+  scaleByDistance: {
+    near: 0, //最近距离
+    nearValue: 0, //最近距离值
+    far: 1, //最远距离值
+    farValue: 0, //最远距离值
   }, //根据距离设置比例
-  "distanceDisplayCondition": {
-    "near": 0, //最近距离
-    "far": Number.MAX_VALUE //最远距离
+  distanceDisplayCondition: {
+    near: 0, //最近距离
+    far: Number.MAX_VALUE, //最远距离
   }, //根据距离设置可见
-  "disableDepthTestDistance": 0 // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
+  disableDepthTestDistance: 0, // 深度检测距离，用于防止剪切地形，设置为零时，将始终应用深度测试。设置为Number.POSITIVE_INFINITY时，永远不会应用深度测试。
 }
 ```
+
+## DC.TrajectoryLine
+
+> 点阵线要素（发光线 + 发光分点），继承于[Overlay](#dc-overlay)
+
+### example
+
+```js
+let positions = [new DC.Position(120, 20, 0), new DC.Position(121, 21, 1000)]
+let trajectoryLine = new DC.TrajectoryLine(positions, {
+  showPoints: true,
+  tooltipTrigger: 'both',
+  dynamicPositions: false, // 实时轨迹（高频追加坐标）建议开启：走顶点缓冲原地更新，防闪动
+})
+trajectoryLine.setStyle({
+  width: 6,
+})
+```
+
+### creation
+
+- **_constructor(positions,[options])_**
+
+  构造函数
+
+  - 参数
+    - `{String|Array<Position|Number|String|Object>} positions`：坐标串
+    - `{Object} options`：参数设置
+      - `{Boolean} showPoints`：是否显示分点，默认为 `true`
+      - `{String} tooltipTrigger`：分点提示触发方式，`'hover'`、`'click'`、`'both'`，默认为 `'both'`
+      - `{Boolean} dynamicPositions`：是否启用**动态坐标模式**（默认 `false`）。**实时轨迹（持续追加坐标）建议开启**：每次数据变更不再重写静态属性（避免「图元移除 → 异步重建」造成每更新一次闪一下），改走顶点缓冲**原地更新**；开启后默认 `arcType = ArcType.NONE`（跳过逐帧大地线加密，可经 `lineStyle.arcType` 覆盖）
+  - 返回值 `trajectoryLine`
+
+### properties
+
+- `{String|Array<Position|Number|String|Object>} positions`：坐标串
+- `{Boolean} showPoints`：是否显示分点，默认为 true
+- `{String} tooltipTrigger`：分点提示触发方式，`'hover'`、`'click'`、`'both'`，默认为 `'both'`
+- `{Boolean} dynamicPositions`：是否启用动态坐标模式，构造时指定 **_`readonly`_**
+
+### methods
+
+- **_addPosition(position,index)_**
+
+  添加点位
+
+  - 参数
+    - `{Position|String|Array|Object} position`：点位
+    - `{Number} index`：插入位置索引，省略或大于等于坐标数组长度时追加到末尾
+  - 返回值 `this`
+
+- **_removePositionAt(index)_**
+
+  移除指定索引的点位
+
+  - 参数
+    - `{Number} index`：点位索引
+  - 返回值 `this`
+
+- **_removePosition(position)_**
+
+  按坐标值查找并移除点位（经纬度及高度均匹配时移除）
+
+  - 参数
+    - `{Position|String|Array|Object} position`：点位
+  - 返回值 `this`
+
+- **_setStyle(style)_**
+
+  设置线样式，传入 `material` 时使用自定义材质
+
+  - 参数
+    - `{Object} style`：样式
+  - 返回值 `this`
+
+```js
+// style（属性可选）
+const style = {
+  color: DC.Color.fromCssColorString('#00FFFF'), //线颜色
+  width: 4, //线宽
+  glowPower: 0.25, //发光强度
+  glow: true, //是否启用线发光
+  clampToGround: false, //是否贴地
+  dash: false, //是否使用虚线
+  dashLength: 16, //虚线段长度
+  dashPattern: 255, //虚线位掩码图案
+}
+```
+
+- **_setPointStyle(style)_**
+
+  设置分点样式
+
+  - 参数
+    - `{Object} style`：样式
+  - 返回值 `this`
+
+```js
+// style（属性可选）
+const style = {
+  pointSize: 24, //分点尺寸
+  pointColor: DC.Color.fromCssColorString('#FFFF00'), //分点颜色
+  pointGradient: true, //是否启用分点尺寸渐变
+  pointGradientDirection: 'ascend', //渐变方向，ascend：首小尾大、descend：首大尾小
+  pointGlow: true, //是否启用分点发光
+}
+```
+
+- **_setTooltipContent(callback)_**
+
+  设置分点提示内容回调
+
+  - 参数
+    - `{Function} callback`：回调函数，参数为 `index`、`position`、`allPositions`，返回值为提示内容
+  - 返回值 `this`
+
+### static methods
+
+- **_fromEntity(entity)_**
+
+  Entity 转换为 Overlay
+
+  - 参数
+    - `{Object} entity`：Cesium 覆盖物
+  - 返回值 `trajectoryLine`

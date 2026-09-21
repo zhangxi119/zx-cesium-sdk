@@ -1,5 +1,48 @@
 # Change Log
 
+### 1.0.10 - 2026-09-21
+
+#### 修复 🐛（实时轨迹/连线的「每次更新闪一下」）
+
+> 背景：1.0.8 的 G2 几何静态化把折线 `positions` 改为恒定数组（几何按需构建一次），
+> 但**高频重写恒定属性**会触发 Cesium 静态批处理的「图元移除 → 异步重建」可见窗口：
+> 每次赋值都会抛出几何变更事件 → `PolylineVisualizer` 将 updater 从静态批处理中移除并重插 →
+> 当这条线是材质批处理项（`StaticGeometryPerMaterialBatch`）中的**唯一实体**时，
+> 批处理项被销毁 —— 正在显示的 Primitive 被**直接移除**，新 Primitive 以
+> `show: false, asynchronous: true` 创建，需等 Worker 异步几何构建完成才显示，
+> 期间线体不可见，即「每更新一次坐标闪一下」。多实体共享同一材质项时不会移除图元
+> （旧图元保留至新图元就绪后原子切换），但每次数据变更仍会整体重建批图元。
+
+- **新增 `dynamicPositions` 选项（opt-in，默认关闭、默认行为不变）**：
+  ```js
+  new DC.TrajectoryLine(positions, { dynamicPositions: true }) // 实时轨迹
+  new DC.Polyline(positions, { dynamicPositions: true }) // 实时连线
+  ```
+  开启后 `positions` 以 `CallbackProperty` 挂载（`isConstant === false`），Cesium 走
+  `DynamicGeometryUpdater → PolylineCollection` **顶点缓冲原地更新**：数据变更只刷新回调
+  返回值，不存在图元销毁/重建窗口（无闪动）。代价为该折线每帧一次 O(顶点数) 的顶点缓冲写入。
+  动态模式默认 `arcType = ArcType.NONE`（跳过逐帧大地线加密；`TrajectoryLine` 可经
+  `lineStyle.arcType`、`Polyline` 可经构造参数 `arcType` 覆盖）。
+  注意：`clampToGround: true` 时动态路径会逐帧重建 `GroundPolylinePrimitive`，贴地线建议保持静态模式。
+- **适用场景**：无人机实时轨迹（按秒追加坐标）、飞手/链路实时连线（每秒多次重赋值）等；
+  静态渲染 / 低频更新场景保持默认即可。
+
+#### 表述更正 📝
+
+- 1.0.8 变更日志及部分源码注释中「动态几何 = 每帧 `primitives.removeAndDestroy(primitive)` +
+  `add(new Primitive(...))`（销毁重建 GPU 顶点缓冲）」的结论**适用于椭圆/多边形等其他几何类型**；
+  对**折线**而言，当前 Cesium 的动态路径是常驻 `PolylineCollection` + 顶点缓冲**原地重写**
+  （`DynamicGeometryUpdater.update` 仅执行 `line.positions = positions.slice()`）。
+  已同步修正相关源码注释（`Polyline` / `TrajectoryLine` / `Track`）。
+
+#### 验证 ✅
+
+- `npm run verify:perf`：**159 + 67 = 226 断言 / 0 失败**（新增 12 条动态模式断言：
+  属性为 `CallbackProperty`、默认 `arcType = NONE`、更新后属性实例不变且回调返回最新顶点数、
+  `dynamicPositions` getter 状态）。
+- 示例页：`trajectory_line.html` 新增「start/stop 实时追加对比」（静态青色闪动 vs 动态橙色连续）、
+  `polyline_base.html` 新增 10Hz 实时连线示例。
+
 ### 1.0.8 - 2026-09-19
 
 #### 线体抗锯齿优化 🪄（针对「线体锯齿严重」）
@@ -37,6 +80,7 @@
   新实现用 `fwidth` 求屏幕空间掩码尺度，再以半个像素为间隔做 **3 点箱式滤波**得到
   实线覆盖率，并按覆盖率混合。同时修正了「非预乘 alpha」下透明间隙稀释实线 RGB 的问题
   （否则抗锯齿过渡带会发暗）。
+
   - 新导出：`PolylineDashAAMaterialProperty`（同名实现）
   - **`PolylineDashMaterialProperty` 现指向该实现**（继承自 Cesium 原类，
     构造参数/取值/`instanceof` 完全等价）→ **既有调用方无需改动即获得平滑虚线**
@@ -50,6 +94,7 @@
 #### 性能优化 ⚡（深度优化，详见应用侧仓库 `ms-fe-cacs/docs/DC_LIB_PERF_PLAN.md`）
 
 **渲染默认值**
+
 - **`sunBloom` 默认关闭**：Cesium 默认 `scene.sunBloom = true`，每帧执行 2 个全分辨率泛光 pass。
   现于 `ViewerOption` 构造期关闭；需要时用 `setOptions({ showSunBloom: true })` 开启。
 - **`msaaSamples` 不再被强制降级**：旧实现 `+options.msaaSamples || 1` 在未传参时会把
@@ -111,38 +156,45 @@
   （原实现会让每个 Viewer 都多出一个事件处理器，与 `MouseEvent` 重复分发鼠标事件）。
 
 #### Features ✨
+
 - `Viewer` 新增 `widgets` / `tools` 选项白名单，可跳过不需要的控件以降低启动开销：
   ```js
   new DC.Viewer('container', {
     widgets: ['popup', 'tooltip'],
-    tools: ['drawTool', 'editTool']
+    tools: ['drawTool', 'editTool'],
   })
   ```
   未传入时保持原有全集行为。
 
 #### Tests ✅
+
 - 新增 `npm run verify:perf`：基于 jsdom 的运行时正确性验证脚本
   （83 项断言，覆盖上述全部改动）。
 
 ### 4.2.0 - 2025-02-09
 
 #### Breaking Changes 📣
+
 - 升级 @cesium/engine 到 13.1.0 版本
 
 #### Fixes 🔧
-- 移除全局config 上下文
+
+- 移除全局 config 上下文
 
 ### 4.1.1 - 2025-01-05
 
 #### Breaking Changes 📣
+
 - 紧急发布，添加分析模块
 
 ### 4.1.0 - 2025-01-05
 
 #### Breaking Changes 📣
+
 - 升级 @cesium/engine 到 13.0.0 版本
 
 #### Fixes 🔧
+
 - 修复地图配置无法使用的问题
 - 修复波纹圆动画的问题
 

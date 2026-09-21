@@ -2,15 +2,15 @@
 
 ## config
 
-> 框架全局配置,用于配置资源文件以及accessToken
+> 框架全局配置,用于配置 Cesium 静态资源路径
 
 ```js
  DC.config.baseUrl = "../***/***/"
 ```
 
 - 参数
-  - `{Object} config`：配置参数
-- 返回值 `Promise`
+  - `{String} baseUrl`：Cesium 静态资源路径，默认值为 `./libs/dc-sdk/resources/`
+- 返回值 `{String}`：当前 `baseUrl`
 
 ```js
 //config（属性可选）
@@ -116,6 +116,20 @@ let turf = DC.getLib('turf')
 
 **_`DC.ImageryType.COORD`_**: 瓦片坐标地图
 
+**_`DC.ImageryType.BING`_**: Bing 地图
+
+**_`DC.ImageryType.GRID`_**: 网格地图
+
+**_`DC.ImageryType.GOOGLE_2D`_**: 谷歌 2D 地图
+
+**_`DC.ImageryType.MAPBOX`_**: Mapbox 地图
+
+**_`DC.ImageryType.MAPBOX_STYLE`_**: Mapbox 样式地图
+
+**_`DC.ImageryType.OSM`_**: OpenStreetMap 地图
+
+**_`DC.ImageryType.TMS`_**: TMS 地图
+
 **_`DC.ImageryType.AMAP`_**: 高德地图
 
 **_`DC.ImageryType.BAIDU`_**: 百度地图
@@ -160,9 +174,27 @@ let turf = DC.getLib('turf')
 
 **_`DC.LayerType.CZML`_**: czml 图层
 
-**_`DC.LayerType.HEAT`_**: 热区图层
+**_`DC.LayerType['HEAT-MAP']`_**: 热区图层
 
-**_`DC.LayerType.CHART`_**: echarts 图层
+**_`DC.LayerType.LABEL`_**: 标签图层
+
+**_`DC.LayerType.GROUND_PRIMITIVE`_**: 贴地图元图层
+
+**_`DC.LayerType.GRATICULE`_**: 经纬网图层
+
+**_`DC.LayerType.GPX`_**: gpx 图层
+
+**_`DC.LayerType.DYNAMIC`_**: 动态图层
+
+**_`DC.LayerType.FEATURE_GRID`_**: 要素网格图层
+
+**_`DC.LayerType.LAYER_GROUP`_**: 图层组
+
+**_`DC.LayerType.TOPOJSON`_**: topoJson 图层
+
+**_`DC.LayerType['RASTER-TILE']`_**: 栅格瓦片图层
+
+**_`DC.LayerType.WIND`_**: 风场图层
 
 ### OverlayType
 
@@ -176,7 +208,7 @@ let turf = DC.getLib('turf')
 
 **_`DC.OverlayType.BILLBOARD`_**: 图标点 **_`可标绘`_**
 
-**_`DC.OverlayType.RECTANGLE`_**: 矩形 **_`可标绘`_**
+**_`DC.OverlayType.RECT`_**: 矩形 **_`可标绘`_**
 
 **_`DC.OverlayType.CIRCLE`_**: 圆 **_`可标绘`_**
 
@@ -200,6 +232,8 @@ let turf = DC.getLib('turf')
 
 **_`DC.OverlayType.POLYLINE_VOLUME`_**: 管道
 
+**_`DC.OverlayType.BEZIER_CURVE`_**: 贝塞尔曲线 **_`可标绘`_**
+
 **_`DC.OverlayType.WALL`_**: 墙体
 
 **_`DC.OverlayType.DYNAMIC_BILLBOARD`_**: 动态图标点
@@ -209,6 +243,10 @@ let turf = DC.getLib('turf')
 **_`DC.OverlayType.CUSTOM_BILLBOARD`_**: 自定义图标
 
 **_`DC.OverlayType.CUSTOM_LABEL`_**: 自定义标签
+
+**_`DC.OverlayType.DIV_ICON`_**: DOM 图标
+
+**_`DC.OverlayType.TRAJECTORY_LINE`_**: 轨迹线
 
 **_`DC.OverlayType.ATTACK_ARROW`_**: 攻击箭头 **_`可标绘`_**
 
@@ -221,6 +259,14 @@ let turf = DC.getLib('turf')
 **_`DC.OverlayType.TAILED_ATTACK_ARROW`_**: 燕尾攻击箭头 **_`可标绘`_**
 
 **_`DC.OverlayType.BILLBOARD_PRIMITIVE`_**: 图标图元
+
+**_`DC.OverlayType.CLOUD_PRIMITIVE`_**: 云图元
+
+**_`DC.OverlayType.BOUNCE_BILLBOARD_PRIMITIVE`_**: 跳动图标图元
+
+**_`DC.OverlayType.BOUNCE_LABEL_PRIMITIVE`_**: 跳动文本图元
+
+**_`DC.OverlayType['LIGHT-CYLINDER-PRIMITIVE']`_**: 光柱图元
 
 **_`DC.OverlayType.DIFFUSE_WALL_PRIMITIVE`_**: 扩散墙图元
 
@@ -253,3 +299,37 @@ let turf = DC.getLib('turf')
 **_`DC.TrackViewMode.TRACKED`_**: 跟随视角
 
 **_`DC.TrackViewMode.FREE`_**: 自由视角
+
+### AnimationType
+
+**_`DC.AnimationType.AROUND_POINT`_**: 点位环绕
+
+**_`DC.AnimationType.AROUND_VIEW`_**: 相机环绕
+
+**_`DC.AnimationType.CIRCLE_SCAN`_**: 扫描圈
+
+**_`DC.AnimationType.FLYING`_**: 定点巡航
+
+**_`DC.AnimationType.GLOBE_ROTATE`_**: 地球自转
+
+**_`DC.AnimationType.RADAR_SCAN`_**: 雷达扫描
+
+### MeasureType
+
+**_`DC.MeasureType.ANGLE`_**: 角度
+
+**_`DC.MeasureType.AREA`_**: 面积
+
+**_`DC.MeasureType.AREA_HEIGHT`_**: 面积高度
+
+**_`DC.MeasureType.AREA_SURFACE`_**: 表面面积
+
+**_`DC.MeasureType.DISTANCE`_**: 距离
+
+**_`DC.MeasureType.DISTANCE_SURFACE`_**: 表面距离
+
+**_`DC.MeasureType.HEADING`_**: 偏航角
+
+**_`DC.MeasureType.HEIGHT`_**: 高度
+
+**_`DC.MeasureType.TRIANGLE_HEIGHT`_**: 三角测量

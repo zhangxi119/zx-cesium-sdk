@@ -32,6 +32,34 @@
         clampToGround: true,
       })
       layer.addOverlay(polyline)
+
+      // ===== 动态坐标模式（高频更新防闪动）=====
+      // 每秒 10 次重设末端坐标，模拟「实时连线」；
+      // dynamicPositions: true 走顶点缓冲原地更新，
+      // 避免静态几何每次重赋值触发「图元移除 → 异步重建」的闪动
+      // （动态模式默认 arcType = ArcType.NONE，跳过逐帧大地线加密）
+      let liveLine = new DC.Polyline(
+        [
+          [-100, 30, 0],
+          [-100.5, 30.5, 0],
+        ],
+        { dynamicPositions: true }
+      )
+      liveLine.setStyle({
+        width: 5,
+        material: DC.Color.YELLOW,
+      })
+      layer.addOverlay(liveLine)
+
+      let angle = 0
+      setInterval(() => {
+        angle += 0.05
+        liveLine.positions = [
+          [-100, 30, 0],
+          [-100.5 + Math.sin(angle) * 0.4, 30.5 + Math.cos(angle) * 0.4, 0],
+        ]
+      }, 100)
+
       viewer.flyTo(layer)
     </script>
   </body>

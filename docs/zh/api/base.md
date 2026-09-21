@@ -12,7 +12,7 @@
 ```
 
 ```js
-let viewer = DC.Viewer('viewer-container')
+let viewer = new DC.Viewer('viewer-container')
 global.viewer = viewer // 添加到全局变量
 ```
 
@@ -52,21 +52,29 @@ const config = {
   enableEventPropagation: false, //是否开启鼠标事件冒泡
   enableMouseMovePick: false, // 是否开启鼠标移动拾取功能，开启后当覆盖物较多的情况下，帧率会下降
   enableMouseOver: false, //是否开启鼠标移入事件，需要开启鼠标移动拾取功能
+  enableMouseMovePickPosition: false, // 是否在鼠标移动时拾取世界坐标，开启后每次鼠标移动都会回读深度缓冲区
+  imageRendering: 'auto', // canvas 的重采样方式，auto：平滑，pixelated：最近邻
+  widgets: ['popup', 'tooltip'], // 控件白名单，不传时为全部控件
+  tools: ['drawTool', 'editTool'], // 工具白名单，不传时为全部工具
 }
 ```
 
 ### properties
 
 - `{Element} container`：场景容器 **_`readonly`_**
+- `{Object} delegate`：底层 Cesium 控件实例 **_`readonly`_**
 - `{Element} widgetContainer`：场景组件容器 **_`readonly`_**
 - `{Element} layerContainer`：场景图层容器 **_`readonly`_**
 - `{Object} scene`：场景 **_`readonly`_**，[详细使用说明](http://resource.dvgis.cn/cesium-docs/Scene.html)
 - `{Object} camera`：相机 **_`readonly`_**，[详细使用说明](http://resource.dvgis.cn/cesium-docs/Scene.html)
 - `{Element} canvas`：canvas 节点 **_`readonly`_**
 - `{Object} clock`：时钟，[详细使用说明](http://resource.dvgis.cn/cesium-docs/Clock.html)
+- `{Object} viewerEvent`：viewer 事件对象 **_`readonly`_**
 - `{Object} dataSources` ：数据资源集合，[详细使用说明](http://resource.dvgis.cn/cesium-docs/DataSourceCollection.html)
 - `{Object} imageryLayers`：瓦片集合，[详细使用说明](http://resource.dvgis.cn/cesium-docs/ImageryLayerCollection.html)
 - `{Object} entities`：实体集合，[详细使用说明](http://resource.dvgis.cn/cesium-docs/EntityCollection.html)
+- `{Object} terrainProvider`：地形服务 **_`readonly`_**
+- `{Object} postProcessStages`：后处理阶段集合 **_`readonly`_**
 - [`{Popup} popup`](#popup)：气泡窗口 **_`readonly`_**
 - [`{ContextMenu} contextMenu`](#contextmenu)：右击弹框 **_`readonly`_**
 - [`{Tooltip} tooltip`](#tooltip)：提示框 **_`readonly`_**
@@ -106,8 +114,13 @@ const config = {
   showMoon: true, //是否显示月亮
   enableFxaa: true, //是否开启抗锯齿
   msaaSamples: 1, //msaa抗拒出取样度
+  showSunBloom: false, //是否显示太阳泛光
+  verticalExaggeration: 1, //地形夸张系数
+  verticalExaggerationRelativeHeight: 1, //地形相对高度夸张系数
+  tabIndex: 0, //canvas 的 tabIndex
   cameraController: {
     // 相机控制
+    enableInputs: true, // 是否开启相机控制输入
     enableRotate: true, // 是否可以旋转
     enableTilt: true, // 是否可以翻转
     enableTranslate: true, // 是否可以平移
@@ -123,10 +136,9 @@ const config = {
     depthTestAgainstTerrain: false, //是否开启深度测试
     tileCacheSize: 100, // 默认瓦片缓存大小
     preloadSiblings: false, //是否应预加载渲染同级图块
-    terrainExaggeration: 1, //地形夸张系数
-    terrainExaggerationRelativeHeight: 1, //地形相对高度夸张系数
+    showSkirts: true, //是否显示瓦片裙边
     baseColor: new DC.Color(0, 0, 0.5, 1), //地球默认底色
-    filterColor: newDC.Color(0, 0, 0, 0), //瓦片过滤色,设置后不可逆
+    filterColor: new DC.Color(0, 0, 0, 0), //瓦片过滤色,设置后不可逆
     translucency: {
       //地表透明
       enabled: false, // 是否开启地表透明
@@ -143,6 +155,32 @@ const config = {
   },
 }
 ```
+
+- **_getPerformanceSnapshot()_**
+
+  获取真实生效的性能与画质参数快照
+
+  - 返回值 `Object`，场景未就绪时返回 `{ available: false }`
+
+- **_setRenderQuality(options)_**
+
+  应用渲染质量档位
+
+  - 参数
+    - `{Object} options`：档位字段，可传 `resolutionScale`、`useDevicePixelRatio`、`targetFrameRate`、`msaaSamples`、`fxaa`、`sunBloom`、`orderIndependentTranslucency`、`imageRendering`、`groundAtmosphere`、`skyAtmosphere`、`maximumScreenSpaceError`
+  - 返回值 `this`
+
+- **_getRenderQuality()_**
+
+  获取渲染质量：期望值与真实生效值
+
+  - 返回值 `Object`，包含 `requested` 与 `effective`
+
+- **_resolvePixelDensity()_**
+
+  解析像素密度，用于图标、贴图纹理密度补偿
+
+  - 返回值 `number`，取值恒 ≥ 1、≤ 4
 
 - **_setPitchRange(min,max)_**
 
@@ -258,6 +296,14 @@ const options = {
   - 参数
     - `{Layer} layer`：图层
   - 返回值 `this`
+
+- **_hasLayer(layer)_**
+
+  检查是否包含图层
+
+  - 参数
+    - `{Layer} layer`：图层
+  - 返回值 `boolean`
 
 - **_getLayer(id)_**
 
@@ -387,6 +433,18 @@ const options = {
     - `{String} name` ：名称，默认为 scene
   - 返回值 `this`
 
+- **_getOffset()_**
+
+  获取场景容器相对视口的偏移
+
+  - 返回值 `Object`，格式`{x:1,y:1}`
+
+- **_resize()_**
+
+  重新调整场景尺寸
+
+  - 返回值 `this`
+
 ## Popup
 
 > 气泡窗口
@@ -406,7 +464,7 @@ popup.setContent('<div></div>')
 ```js
 // 配置（属性可选),配置后会影响全局的popup的显示样式，请慎重。
 const config = {
-  position: 'center', // popup的位于鼠标的点击位置的方向,有：center，left ，right
+  position: 'center', // popup的位于鼠标的点击位置的方向,有：center（默认），topleft，topright，bottomleft，bottomright
   customClass: 'custom', // 添加自定义的Css 类名到popup中，多个用空格隔开
 }
 ```
@@ -465,7 +523,7 @@ contextMenu.DEFAULT_MENU = [
   {
     label: '测试',
     callback: (e) => {
-    }, // e是一个对象主要包括 windowPosition,position,surfacePosition,overlay
+    }, // e是一个对象主要包括 windowPosition,position,wgs84Position,surfacePosition,wgs84SurfacePosition,overlay,instanceId
     context: this,
   },
 ] // 设置默认的右击菜单，会影响全局右击菜单(慎用)。
@@ -475,6 +533,7 @@ contextMenu.DEFAULT_MENU = [
 
 - `{Boolean} enable`：是否启用
 - `{String} state`：状态 **_`readonly`_**
+- `{Object} config`：配置 **_`writeOnly`_**
 - `{Array} DEFAULT_MENU`：默认菜单，菜单的回调函数参数为一个对象 **_`writeOnly`_**
 
 ## Tooltip
@@ -503,6 +562,61 @@ tooltip.showAt({ x: 100, y: 100 }, '测试')
   - 参数
     - `{Cartesian2} position`：屏幕坐标
     - `{String|Element} content`：内容
+  - 返回值 `this`
+
+## MapSwitch
+
+> 底图切换
+
+### examples
+
+```js
+viewer.mapSwitch.addMap({
+  name: '影像底图',
+  iconUrl: './images/map.png',
+})
+```
+
+### properties
+
+- `{Boolean} enable`：是否启用
+- `{String} state`：状态 **_`readonly`_**
+
+### methods
+
+- **_addMap([map])_**
+
+  添加地图
+
+  - 参数
+    - `{Object} [map]`：地图配置
+      - `{String} name`：名称，默认：地图
+      - `{String} iconUrl`：图标地址
+
+## HawkeyeMap
+
+> 鹰眼图
+
+### examples
+
+```js
+viewer.hawkeyeMap.enable = true
+viewer.hawkeyeMap.addBaseLayer(DC.ImageryLayerFactory.createGoogleImageryLayer())
+```
+
+### properties
+
+- `{Boolean} enable`：是否启用
+- `{String} state`：状态 **_`readonly`_**
+
+### methods
+
+- **_addBaseLayer(baseLayer)_**
+
+  添加地图
+
+  - 参数
+    - `{Object|Array} baseLayer`：地图，可以是单个或数组
   - 返回值 `this`
 
 ## MapSplit
@@ -672,6 +786,60 @@ viewer.loadingMask.enable = true
 - `{Boolean} enable`：是否启用
 - `{String} state`：状态 **_`readonly`_**
 
+## DC.BaseLayerPicker
+
+> 底图选择器
+
+### example
+
+```js
+let baseLayerPicker = new DC.BaseLayerPicker({
+  globe: viewer.scene.globe,
+})
+baseLayerPicker.addImageryLayer(DC.ImageryLayerFactory.createGoogleImageryLayer())
+baseLayerPicker.changeImageryLayer(0)
+```
+
+### creation
+
+- **_constructor(options)_**
+
+  构造函数
+
+  - 参数
+    - `{Object} options`：配置
+  - 返回值 `baseLayerPicker`
+
+```js
+// options（属性必填）
+const options = {
+  globe: viewer.scene.globe, // 球体，必填
+}
+```
+
+### properties
+
+- `{Object} selectedImageryLayer`：当前选中的底图
+
+### methods
+
+- **_addImageryLayer(imageryLayer,[options])_**
+
+  添加底图
+
+  - 参数
+    - `{Object|Array} imageryLayer`：底图，可以是单个或数组
+    - `{Object} [options]`：配置
+  - 返回值 `this`
+
+- **_changeImageryLayer(index)_**
+
+  切换底图
+
+  - 参数
+    - `{Number} index`：底图索引
+  - 返回值 `this`
+
 ## DC.GroundSkyBox
 
 > 近地天空盒，[详情参考](http://resource.dvgis.cn/cesium-docs/SkyBox.html)
@@ -693,7 +861,7 @@ scene.skyBox = new DC.GroundSkyBox({
 
 ### creation
 
-- **_constructor(id)_**
+- **_constructor(options)_**
 
   构造函数
 
@@ -764,6 +932,20 @@ let position3 = DC.Position.fromObject({ lng: 120, lat: 22, alt: 102 })
 
   - 返回值 `string`
 
+- **_distance(target)_**
+
+  计算两个坐标之间的距离
+
+  - 参数
+    - `{Position} target`：目标坐标
+  - 返回值 `number`
+
+- **_clone()_**
+
+  复制一个新的位置
+
+  - 返回值 `position`
+
 - **_copy()_**
 
   复制一个新的位置
@@ -812,22 +994,6 @@ let position3 = DC.Position.fromObject({ lng: 120, lat: 22, alt: 102 })
 
   - 参数
     - `{Object} obj`：Json 对象坐标
-  - 返回值 `position`
-
-- **_fromCoordString(str)_** `deprecated`
-
-  字符坐标串转换为坐标对象
-
-  - 参数
-    - `{String} str`：字符坐标串
-  - 返回值 `position`
-
-- **_fromCoordArray(array)_** `deprecated`
-
-  坐标数组转换为坐标对象
-
-  - 参数
-    - `{Array<String|Number>} array`：坐标数组
   - 返回值 `position`
 
 - **_deserialize(valStr)_**
@@ -907,12 +1073,21 @@ let cartesian3 = DC.T.transformWGS84ToCartesian(new DC.Position(120, 20))
     - `{Cartesian3} cartesian`：世界坐标
   - 返回值 `position`
 
-- **_transformWGS84ToCartesian(position)_**
+- **_transformCartographicToWGS84(cartographic)_**
+
+  制图坐标转换为 84 坐标
+
+  - 参数
+    - `{Cartographic} cartographic`：制图坐标
+  - 返回值 `position`
+
+- **_transformWGS84ToCartesian(position,[result])_**
 
   84 坐标转换为世界坐标
 
   - 参数
     - `{Position} position`：84 坐标
+    - `{Cartesian3} [result]`：可选复用出参
   - 返回值 `cartesian`
 
 - **_transformWGS84ToCartographic(position)_**
@@ -931,12 +1106,13 @@ let cartesian3 = DC.T.transformWGS84ToCartesian(new DC.Position(120, 20))
     - `{Array<cartesian3>} cartesianArr`：世界坐标数组
   - 返回值 `array`
 
-- **_transformWGS84ArrayToCartesianArray(WGS84Arr)_**
+- **_transformWGS84ArrayToCartesianArray(WGS84Arr,[result])_**
 
   84 坐标数组转世界坐标数组
 
   - 参数
-    - `{Array<cartesian3>} WGS84Arr`：84 坐标数组
+    - `{Array<Position>} WGS84Arr`：84 坐标数组
+    - `{Array<cartesian3>} [result]`：可选复用数组
   - 返回值 `array`
 
 - **_transformWGS84ToMercator(position)_**
@@ -972,6 +1148,17 @@ let cartesian3 = DC.T.transformWGS84ToCartesian(new DC.Position(120, 20))
     - `{Position} position`： 84 坐标
     - `{Viewer} viewer`：3D 场景
   - 返回值 `Object`
+
+- **_generateCirclePositions(center,radius,[segments],[altitude])_**
+
+  生成以指定位置为圆心的 84 圆周坐标
+
+  - 参数
+    - `{Position} center`：圆心
+    - `{Number} radius`：半径，单位：米
+    - `{Number} [segments]`：分段数，默认：360
+    - `{Number} [altitude]`：强制所有点的高度，默认取圆心的 alt
+  - 返回值 `Array<Position>`
 
 ## DC.CoordTransform
 
@@ -1019,6 +1206,42 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{Number} lat`：纬度
   - 返回值 `[]`
 
+- **_delta(lng, lat)_**
+
+  计算经纬度偏移量
+
+  - 参数
+    - `{Number} lng`：经度
+    - `{Number} lat`：纬度
+  - 返回值 `[]`
+
+- **_transformLng(lng, lat)_**
+
+  经度偏移量计算函数
+
+  - 参数
+    - `{Number} lng`：经度
+    - `{Number} lat`：纬度
+  - 返回值 `number`
+
+- **_transformLat(lng, lat)_**
+
+  纬度偏移量计算函数
+
+  - 参数
+    - `{Number} lng`：经度
+    - `{Number} lat`：纬度
+  - 返回值 `number`
+
+- **_out_of_china(lng, lat)_**
+
+  判断坐标是否在中国境外
+
+  - 参数
+    - `{Number} lng`：经度
+    - `{Number} lat`：纬度
+  - 返回值 `boolean`
+
 ## DC.Math
 
 > 基本函数类
@@ -1042,7 +1265,7 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{Number}} expand`： 扩展比例：0~1
   - 返回值 `object`
 
-- **_mid(start , end)_**
+- **_midPosition(start , end)_**
 
   两点之间的中心点
 
@@ -1051,6 +1274,15 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `end`： 结束位置
   - 返回值 `position`
 
+- **_midCartesian(start , end)_**
+
+  两点之间的中心点的世界坐标
+
+  - 参数
+    - `start`： 开始位置
+    - `end`： 结束位置
+  - 返回值 `cartesian`
+
 - **_center(positions)_**
 
   中心点
@@ -1058,6 +1290,15 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
   - 参数
     - `{Array<Position>} positions`： 点位数据
   - 返回值 `position`
+
+- **_curve(points,[options])_**
+
+  曲线，将折线转换为曲线
+
+  - 参数
+    - `{Array} points`： 点位数据
+    - `{Object} [options]`： 配置，可传 `count`：曲线的折线段个数，默认：40
+  - 返回值 `array`
 
 - **_distance(positions)_**
 
@@ -1075,6 +1316,16 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `start`： 开始位置
     - `end`： 结束位置
   - 返回值 `number`
+
+- **_isBetween(value,min,max)_**
+
+  判断数值是否在区间内
+
+  - 参数
+    - `{Number} value`： 数值
+    - `{Number} min`： 最小值
+    - `{Number} max`： 最大值
+  - 返回值 `boolean`
 
 - **_parabola(start, end,height,count)_**
 
@@ -1112,9 +1363,51 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{Object|Array} sources`：需要合并的属性
   - 返回值 `object`
 
+- **_splitWords(str)_**
+
+  按空白字符拆分字符串
+
+  - 参数
+    - `{String} str`：字符串
+  - 返回值 `array`
+
+- **_setOptions(obj,options)_**
+
+  合并属性到对象的 options
+
+  - 参数
+    - `{Object} obj`：目标对象
+    - `{Object} options`：属性
+  - 返回值 `object`
+
+- **_formatNum(num,digits)_**
+
+  保留指定位数的小数，默认：6 位
+
+  - 参数
+    - `{Number} num`：数值
+    - `{Number} digits`：小数位数，默认：6
+  - 返回值 `number`
+
+- **_trim(str)_**
+
+  去除字符串首尾空白
+
+  - 参数
+    - `{String} str`：字符串
+  - 返回值 `string`
+
 - **_emptyImageUrl()_**
 
   空图片
+
+- **_checkPosition(position)_**
+
+  校验是否为坐标对象
+
+  - 参数
+    - `{Object} position`：坐标对象
+  - 返回值 `boolean`
 
 - **_debounce(fn,delay)_**
 
@@ -1124,6 +1417,39 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
 
   节流
 
+- **_dataURLtoBlob(dataUrl)_**
+
+  dataURL 转 Blob
+
+  - 参数
+    - `{String} dataUrl`：dataURL 字符串
+  - 返回值 `Blob`
+
+- **_isPromise(obj)_**
+
+  判断是否为 Promise 或 thenable
+
+  - 参数
+    - `{Object} obj`：对象
+  - 返回值 `boolean`
+
+- **_getElapsedSeconds(julianDate)_**
+
+  获取 JulianDate 对应的累计秒数
+
+  - 参数
+    - `{Object} julianDate`：JulianDate 对象
+  - 返回值 `number`
+
+- **_clampLineWidth(width,[range])_**
+
+  规整折线线宽到安全区间
+
+  - 参数
+    - `{Number} width`：线宽（CSS 像素）
+    - `{Object} [range]`：目标区间 `{min, max}`，默认 `1 ~ 12`
+  - 返回值 `number`
+
 ## DC.DomUtil
 
 > Dom 工具类
@@ -1132,11 +1458,19 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
 
 - **_get(id)_**
 
-  创建 dom
+  获取 dom
 
   - 参数
     - `{String} id`： 要素 ID
   - 返回值 `Element`
+
+- **_getStyle(el, style)_**
+
+  获取要素的样式值
+
+  - 参数
+    - `{Element} el`： 要素
+    - `{String} style`： 样式名
 
 - **_create(tagName, className, [container])_**
 
@@ -1147,6 +1481,29 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{String} className`： 样式名，多个用空格隔开
     - `{Element} [container]`： 父容器
   - 返回值 `Element`
+
+- **_remove(el)_**
+
+  移除要素
+
+  - 参数
+    - `{Element} el`： 要素
+
+- **_empty(el)_**
+
+  清空要素的所有子节点
+
+  - 参数
+    - `{Element} el`： 要素
+
+- **_hasClass(el, name)_**
+
+  判断要素是否包含类名
+
+  - 参数
+    - `{Element} el`： 要素
+    - `{String} className`： 样式名，多个用空格隔开
+  - 返回值 `boolean`
 
 - **_addClass(el, name)_**
 
@@ -1164,17 +1521,25 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{Element} el`： 要素
     - `{String} className`： 样式名，多个用空格隔开
 
-- **_addClass(el, name)_**
+- **_setClass(el, name)_**
 
-  添加类名
+  设置要素的类名
 
   - 参数
     - `{Element} el`： 要素
     - `{String} className`： 样式名，多个用空格隔开
 
+- **_getClass(el)_**
+
+  获取要素的类名
+
+  - 参数
+    - `{Element} el`： 要素
+  - 返回值 `String`
+
 - **_createSvg(width, height, path, [container])_**
 
-  添加类名
+  创建 svg 节点
 
   - 参数
     - `{Number} width`： 宽度
@@ -1213,3 +1578,103 @@ let point = DC.CoordTransform.BD09ToGCJ02(120, 20)
     - `{String} className`： 样式名，多个用空格隔开
     - `{Element} [container]`： 父容器
   - 返回值 `Element | Nodes`
+
+## DC.IntervalGate
+
+> 采样型间隔闸门，`interval` 毫秒内只放行一次，首次调用（含 `interval <= 0`）必然放行
+
+### example
+
+```js
+let intervalGate = new DC.IntervalGate(1000)
+if (intervalGate.allow()) {
+  // 记录一个轨迹点
+}
+```
+
+### creation
+
+- **_constructor(intervalMs)_**
+
+  构造函数
+
+  - 参数
+    - `{Number} intervalMs`：最小间隔，单位：毫秒，小于等于 0 表示不限流，默认：0
+  - 返回值 `intervalGate`
+
+### properties
+
+- `{Number} interval`：最小间隔，单位：毫秒
+
+### methods
+
+- **_allow([now],[interval])_**
+
+  判断本次是否放行
+
+  - 参数
+    - `{Number} [now]`：当前时间戳，默认：`Date.now()`
+    - `{Number} [interval]`：本次使用的间隔，不传则用构造值
+  - 返回值 `boolean`，true：放行并记账，false：丢弃
+
+- **_reset()_**
+
+  复位，清空记账，下次调用立即放行
+
+## DC.TrailingThrottle
+
+> 状态型节流器，同一 `key` 的连续 `push` 在一个节流窗口内只会立即执行第一次，窗口内的后续值被合并为最新值，并在窗口结束时补发一次
+
+### example
+
+```js
+let trailingThrottle = new DC.TrailingThrottle(200, (key, position) => {
+  // 实际执行更新
+})
+trailingThrottle.push('drone-1', new DC.Position(120, 20, 100))
+```
+
+### creation
+
+- **_constructor(intervalMs,apply)_**
+
+  构造函数
+
+  - 参数
+    - `{Number} intervalMs`：节流窗口，单位：毫秒，小于等于 0 表示退化为直通，默认：0
+    - `{Function} apply`：实际执行更新的回调，参数为 `(key, payload)`
+  - 返回值 `trailingThrottle`
+
+### properties
+
+- `{Number} interval`：节流窗口，单位：毫秒
+- `{Number} pendingCount`：待补发数量（诊断用） **_`readonly`_**
+
+### methods
+
+- **_push(key,payload,[now])_**
+
+  推送一次更新
+
+  - 参数
+    - `{String} key`：去重键（如实体 id）
+    - `{*} payload`：最新值
+    - `{Number} [now]`：当前时间戳，默认：`Date.now()`
+
+- **_flush([key])_**
+
+  立即应用挂起值（不等待窗口结束）
+
+  - 参数
+    - `{String} [key]`：指定 key，不传则应用全部挂起项
+
+- **_cancel([key])_**
+
+  丢弃指定 key 的挂起值，实体已被移除时使用，避免回调访问已销毁对象
+
+  - 参数
+    - `{String} [key]`：指定 key，不传则清空全部
+
+- **_destroy()_**
+
+  销毁，清理定时器与挂起项

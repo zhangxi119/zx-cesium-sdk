@@ -57,8 +57,12 @@ let viewer = new DC.Viewer('viewer-container')
 ## 应用配置
 
 由于 DC 框架将 Cesium 静态资源默认路径设置为 `./libs/dc-sdk/resources/`，这样需将 `Cesium` 相关的静态资源文件: `Assets`、
-`Workers` 、`ThirdParty` 复制到工程的 `libs/dc-sdk/resources` 目录下以保证三维场景能够正常呈现,也可通过全局函数进行
-`Cesium` 相关的静态资源路基设置
+`Workers` 、`ThirdParty` 复制到工程的 `libs/dc-sdk/resources` 目录下以保证三维场景能够正常呈现，也可通过全局配置
+`DC.config.baseUrl` 重新设置 `Cesium` 相关的静态资源路径（需在 `new DC.Viewer(...)` 之前设置）
+
+```js
+DC.config.baseUrl = '/your-resources-path/'
+```
 
 > `npm / yarn / pnpm`
 

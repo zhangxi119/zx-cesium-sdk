@@ -10,46 +10,49 @@ new DC.TrajectoryLine(positions, options)
 
 ### 参数
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数        | 类型                     | 说明                                                                        |
+| ----------- | ------------------------ | --------------------------------------------------------------------------- |
 | `positions` | `Position[]` \| `string` | 轨迹坐标点数组，支持 `Position` 数组或字符串格式（如 `'-75, 35; -80, 35'`） |
-| `options` | `Object` | 可选配置 |
+| `options`   | `Object`                 | 可选配置                                                                    |
 
 ### options 配置项
 
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `showPoints` | `boolean` | `true` | 是否显示分点位 |
-| `lineStyle` | `Object` | 见下 | 发光线样式 |
-| `pointStyle` | `Object` | 见下 | 发光点样式 |
-| `tooltipContent` | `Function` | `null` | 提示内容回调 `(index, position, allPositions) => string` |
-| `tooltipTrigger` | `string` | `'both'` | tooltip 触发方式：`'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可） |
+| 属性               | 类型       | 默认值   | 说明                                                                                                                                                                                                                                              |
+| ------------------ | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `showPoints`       | `boolean`  | `true`   | 是否显示分点位                                                                                                                                                                                                                                    |
+| `dynamicPositions` | `boolean`  | `false`  | 是否启用**动态坐标模式**（实时轨迹防闪动）：`positions` 走 `CallbackProperty` → Cesium 顶点缓冲**原地更新**，高频追加坐标不再触发静态批处理的「图元移除 → 异步重建」（否则唯一实体场景下每次更新会闪动一次）；开启后默认 `arcType = ArcType.NONE` |
+| `lineStyle`        | `Object`   | 见下     | 发光线样式                                                                                                                                                                                                                                        |
+| `pointStyle`       | `Object`   | 见下     | 发光点样式                                                                                                                                                                                                                                        |
+| `tooltipContent`   | `Function` | `null`   | 提示内容回调 `(index, position, allPositions) => string`                                                                                                                                                                                          |
+| `tooltipTrigger`   | `string`   | `'both'` | tooltip 触发方式：`'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可）                                                                                                                                                                      |
 
 #### lineStyle 发光线样式
 
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `color` | `Cesium.Color` | `#00FFFF` | 线颜色 |
-| `width` | `number` | `4` | 线宽（像素） |
-| `glow` | `boolean` | `true` | 是否启用线发光效果，`false` 时使用 `PolylineOutlineMaterialProperty` 纯色渲染（无光晕） |
-| `glowPower` | `number` | `0.25` | 发光强度（仅 `glow: true` 且 `dash: false` 时生效） |
-| `dash` | `boolean` | `false` | 是否使用虚线，`true` 时使用 `PolylineDashMaterialProperty` |
-| `dashLength` | `number` | `16` | 虚线段长度（仅 `dash: true` 时生效） |
-| `dashPattern` | `number` | `255` | 虚线位掩码图案（仅 `dash: true` 时生效） |
-| `clampToGround` | `boolean` | `false` | 是否贴地 |
-| `material` | `MaterialProperty` | — | 自定义材质，传入后覆盖默认发光/虚线材质 |
+| 属性            | 类型               | 默认值                      | 说明                                                                                     |
+| --------------- | ------------------ | --------------------------- | ---------------------------------------------------------------------------------------- |
+| `color`         | `Cesium.Color`     | `#00FFFF`                   | 线颜色                                                                                   |
+| `width`         | `number`           | `4`                         | 线宽（像素）                                                                             |
+| `glow`          | `boolean`          | `true`                      | 是否启用线发光效果，`false` 时使用 `PolylineOutlineMaterialProperty` 纯色渲染（无光晕）  |
+| `glowPower`     | `number`           | `0.25`                      | 发光强度（仅 `glow: true` 且 `dash: false` 时生效）                                      |
+| `dash`          | `boolean`          | `false`                     | 是否使用虚线，`true` 时使用 `PolylineDashMaterialProperty`                               |
+| `dashLength`    | `number`           | `16`                        | 虚线段长度（仅 `dash: true` 时生效）                                                     |
+| `dashPattern`   | `number`           | `255`                       | 虚线位掩码图案（仅 `dash: true` 时生效）                                                 |
+| `clampToGround` | `boolean`          | `false`                     | 是否贴地                                                                                 |
+| `arcType`       | `number`           | 动态模式默认 `ArcType.NONE` | 弧线类型；动态坐标模式下建议保持 `NONE`（GEODESIC 会逐帧执行大地线加密，开销随点数放大） |
+| `material`      | `MaterialProperty` | —                           | 自定义材质，传入后覆盖默认发光/虚线材质                                                  |
 
 #### pointStyle 发光点样式
 
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `pointSize` | `number` | `24` | 点最大尺寸（像素），渐变时为最大端的尺寸 |
-| `pointColor` | `Cesium.Color` | `#FFFF00` | 点颜色 |
-| `pointGradient` | `boolean` | `true` | 是否启用点尺寸渐变，`false` 时所有点统一为 `pointSize` |
-| `pointGradientDirection` | `string` | `'ascend'` | 渐变方向：`'ascend'`（首小尾大）、`'descend'`（首大尾小） |
-| `pointGlow` | `boolean` | `true` | 是否启用发光效果，`false` 时点位为实心圆（不发光） |
+| 属性                     | 类型           | 默认值     | 说明                                                      |
+| ------------------------ | -------------- | ---------- | --------------------------------------------------------- |
+| `pointSize`              | `number`       | `24`       | 点最大尺寸（像素），渐变时为最大端的尺寸                  |
+| `pointColor`             | `Cesium.Color` | `#FFFF00`  | 点颜色                                                    |
+| `pointGradient`          | `boolean`      | `true`     | 是否启用点尺寸渐变，`false` 时所有点统一为 `pointSize`    |
+| `pointGradientDirection` | `string`       | `'ascend'` | 渐变方向：`'ascend'`（首小尾大）、`'descend'`（首大尾小） |
+| `pointGlow`              | `boolean`      | `true`     | 是否启用发光效果，`false` 时点位为实心圆（不发光）        |
 
 > **点尺寸规则**：
+>
 > - `pointGradient: false` → 所有点统一为 `pointSize`。
 > - `pointGradientDirection: 'ascend'`（默认）→ 头部点最小为 `pointSize / 3`，尾部点最大为 `pointSize`，中间点按索引线性插值。
 > - `pointGradientDirection: 'descend'` → 头部点最大为 `pointSize`，尾部点最小为 `pointSize / 3`，中间点按索引线性插值。
@@ -121,24 +124,46 @@ trajectory.setPointStyle({
 
 ```javascript
 trajectory.setTooltipContent(function (index, pos, allPositions) {
-  return '点 #' + (index + 1) + '<br/>经度: ' + pos.lng.toFixed(6) + '<br/>纬度: ' + pos.lat.toFixed(6)
+  return (
+    '点 #' +
+    (index + 1) +
+    '<br/>经度: ' +
+    pos.lng.toFixed(6) +
+    '<br/>纬度: ' +
+    pos.lat.toFixed(6)
+  )
 })
 ```
 
 ## 动态更新
 
-TrajectoryLine 支持创建后动态更新坐标、点位显隐、触发模式等，所有更新均为增量操作，不会全量重建 entity，避免闪烁。
+TrajectoryLine 支持创建后动态更新坐标、点位显隐、触发模式等。
+
+> **⚠ 高频更新必须开启 `dynamicPositions`**：静态几何（默认）每次重写 `positions` 都会触发一次几何重建，在「唯一实体材质项」下会产生「图元移除 → 异步重建」的可见窗口（表现为**每更新一次坐标闪一下**）；开启动态坐标模式后改走顶点缓冲原地更新，无此窗口。
+
+```javascript
+// 实时轨迹（按秒追加坐标）建议开启动态坐标模式
+let liveTrajectory = new DC.TrajectoryLine(positions, {
+  showPoints: false,
+  dynamicPositions: true,
+})
+layer.addOverlay(liveTrajectory)
+
+// 之后持续追加 / 裁剪点位即可（内部自动同步几何，不闪动）
+liveTrajectory.addPosition(new DC.Position(120.41, 31.13, 1500))
+liveTrajectory.removePositionAt(0)
+```
 
 ### positions setter
 
-全量替换坐标数组，内部做 diff：新增的点位追加 entity，减少的点位移除 entity，数量不变时仅更新坐标值（通过 `CallbackProperty` 自动响应）。
+全量替换坐标数组并同步几何：静态模式（默认）重写实体恒定属性（每次数据变更重建一次几何，适合低频更新）；动态模式（`dynamicPositions: true`）仅刷新 `CallbackProperty` 的 Cartesian 缓存（属性实例不变，走原地更新，适合高频更新）。
 
 ```javascript
 // 全量替换坐标
 trajectory.positions = [
-  new DC.Position(120.38, 31.10, 1000),
+  new DC.Position(120.38, 31.1, 1000),
   new DC.Position(120.39, 31.11, 1200),
-  new DC.Position(120.40, 31.12, 1500),
+  new DC.Position(120.4, 31.12, 1500),
 ]
 ```
 
@@ -146,10 +171,10 @@ trajectory.positions = [
 
 在末尾或指定索引处添加一个坐标点，自动追加对应的 billboard entity。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `position` | `Position` \| `string` | 要添加的坐标点 |
-| `index` | `number?` | 插入位置索引，省略或 >= 数组长度时追加到末尾 |
+| 参数       | 类型                   | 说明                                         |
+| ---------- | ---------------------- | -------------------------------------------- |
+| `position` | `Position` \| `string` | 要添加的坐标点                               |
+| `index`    | `number?`              | 插入位置索引，省略或 >= 数组长度时追加到末尾 |
 
 ```javascript
 // 追加到末尾
@@ -163,8 +188,8 @@ trajectory.addPosition(new DC.Position(120.395, 31.115, 1300), 2)
 
 移除指定索引的坐标点及对应 entity。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数    | 类型     | 说明               |
+| ------- | -------- | ------------------ |
 | `index` | `number` | 要移除的坐标点索引 |
 
 ```javascript
@@ -175,8 +200,8 @@ trajectory.removePositionAt(3)
 
 按坐标值查找并移除坐标点（经纬度及高度均匹配时移除）。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数       | 类型                   | 说明           |
+| ---------- | ---------------------- | -------------- |
 | `position` | `Position` \| `string` | 要移除的坐标点 |
 
 ```javascript
@@ -222,11 +247,11 @@ console.log(trajectory.tooltipTrigger)
 
 当鼠标交互发生在分点上时，事件回调的 `e` 对象会注入以下富载荷字段：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `e.trajectoryIndex` | `number` | 分点索引（从 0 开始） |
-| `e.trajectoryPosition` | `Position` | 分点坐标（WGS84） |
-| `e.trajectoryPositions` | `Position[]` | 所有轨迹坐标点 |
+| 字段                    | 类型         | 说明                  |
+| ----------------------- | ------------ | --------------------- |
+| `e.trajectoryIndex`     | `number`     | 分点索引（从 0 开始） |
+| `e.trajectoryPosition`  | `Position`   | 分点坐标（WGS84）     |
+| `e.trajectoryPositions` | `Position[]` | 所有轨迹坐标点        |
 
 支持的事件类型：`CLICK`, `MOUSE_OVER`, `MOUSE_OUT`, `MOUSE_MOVE` 等。
 
@@ -263,9 +288,9 @@ viewer.addLayer(layer)
 
 // 3. 生成轨迹坐标
 let positions = [
-  new DC.Position(120.38, 31.10, 1000),
+  new DC.Position(120.38, 31.1, 1000),
   new DC.Position(120.39, 31.11, 1200),
-  new DC.Position(120.40, 31.12, 1500),
+  new DC.Position(120.4, 31.12, 1500),
 ]
 
 // 4. 创建点阵线（发光线 + 发光点）
@@ -313,5 +338,6 @@ viewer.flyTo(layer)
 - **分点 Entity** 的 `overlayId` 指向 `TrajectoryLine` 实例，鼠标拾取后会正确派发事件到当前 overlay。
 - **tooltip 触发方式**通过 `tooltipTrigger` 配置，支持 `'hover'`（悬停）、`'click'`（点击）、`'both'`（两者均可），默认 `'both'`，运行时可通过 setter 动态切换。
 - **事件富载荷**：在分点上触发 `CLICK` / `MOUSE_OVER` / `MOUSE_OUT` 时，回调 `e` 对象注入 `trajectoryIndex`、`trajectoryPosition`、`trajectoryPositions` 字段，需在 `addOverlay` 之后注册 `.on()` 以确保字段可用。
-- **动态更新**：`positions` setter、`addPosition`、`removePositionAt`、`removePosition` 均为增量操作，通过 `CallbackProperty` 自动响应坐标和尺寸变化，不会全量重建 entity，避免闪烁。
+- **动态更新与闪动**：`positions` setter、`addPosition`、`removePositionAt`、`removePosition` 均会同步几何与分点。**高频追加坐标的实时轨迹请开启 `dynamicPositions: true`**（顶点缓冲原地更新，不闪动）；默认静态模式仅适合低频更新场景。
+- **`clampToGround` 与动态模式**：`clampToGround: true` 时 Cesium 的动态路径会逐帧重建 `GroundPolylinePrimitive`（同步几何、开销较高），贴地轨迹建议保持默认静态模式。
 - **showPoints 切换**：通过 setter 动切换显隐时，已创建的 entity 仅切换 `show` 属性，不会销毁重建；从隐藏切换为显示时若 entity 不存在则自动创建。
